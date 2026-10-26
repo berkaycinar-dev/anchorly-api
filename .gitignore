@@ -1,0 +1,15 @@
+node_modules
+coverage
+
+.env
+.env.*
+!.env.example
+
+logs
+*.log
+npm-debug.log*
+
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
