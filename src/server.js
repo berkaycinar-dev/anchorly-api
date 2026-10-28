@@ -1,11 +1,8 @@
-import { existsSync } from "node:fs";
 import { createApp } from "./app.js";
-import { loadConfig } from "./config.js";
+import { loadConfig, loadEnvFile } from "./config.js";
 import { createDatabase } from "./db/client.js";
 
-if (existsSync(".env")) {
-  process.loadEnvFile(".env");
-}
+loadEnvFile();
 
 const config = loadConfig();
 const database = createDatabase(config.databaseUrl);

@@ -1,3 +1,4 @@
+import { existsSync } from "node:fs";
 import { z } from "zod";
 
 const environmentSchema = z.object({
@@ -18,4 +19,10 @@ export function loadConfig(environment = process.env) {
     port: result.data.PORT,
     databaseUrl: result.data.DATABASE_URL,
   };
+}
+
+export function loadEnvFile(path = ".env") {
+  if (existsSync(path)) {
+    process.loadEnvFile(path);
+  }
 }
