@@ -5,6 +5,7 @@ import {
   projects,
   routineChecks,
   routines,
+  tasks,
   userSettings,
   users,
 } from "../src/db/schema/index.js";
@@ -29,6 +30,7 @@ const bob = {
 };
 const sharedProjectId = "678e4529-fa35-432c-8baa-6a1298ba43f1";
 const routineId = "88444dfd-8be1-4578-956f-037a0b71e8b7";
+const taskId = "4cbd7450-6231-43eb-96a2-3be6d2b1d532";
 
 describe("database schema", () => {
   let database;
@@ -49,7 +51,7 @@ describe("database schema", () => {
     await db.insert(users).values([alice, bob]);
   });
 
-  it("creates the five application tables", async () => {
+  it("creates the application tables", async () => {
     const result = await db.execute(
       sql`select table_name from information_schema.tables where table_schema = 'public' order by table_name`,
     );
@@ -58,6 +60,7 @@ describe("database schema", () => {
       "projects",
       "routine_checks",
       "routines",
+      "tasks",
       "user_settings",
       "users",
     ]);
@@ -172,12 +175,169 @@ describe("database schema", () => {
     await db
       .insert(routines)
       .values({ userId: alice.id, id: routineId, title: "Read", position: 0 });
+    await db.insert(tasks).values({
+      userId: alice.id,
+      id: taskId,
+      projectId: sharedProjectId,
+      title: "Write report",
+      position: 0,
+    });
 
     await db.delete(users).where(eq(users.id, alice.id));
 
     expect(await db.select().from(userSettings)).toEqual([]);
     expect(await db.select().from(projects)).toEqual([]);
     expect(await db.select().from(routines)).toEqual([]);
+    expect(await db.select().from(tasks)).toEqual([]);
+  });
+
+  it("fills a new task with the default values", async () => {
+    const [task] = await db
+      .insert(tasks)
+      .values({
+        userId: alice.id,
+        id: taskId,
+        title: "Write report",
+        position: 0,
+      })
+      .returning();
+
+    expect(task).toMatchObject({
+      projectId: null,
+      category: "Work",
+      date: null,
+      completed: false,
+      completedAt: null,
+      description: "",
+      steps: [],
+      repeat: "none",
+      repeatGroupId: null,
+      deletedAt: null,
+    });
+  });
+
+  it("keeps task steps and a millisecond position unchanged", async () => {
+    const steps = [
+      {
+        id: "a3f1c2d4-0000-4000-8000-000000000001",
+        text: "Taslağı yaz",
+        done: true,
+      },
+      {
+        id: "a3f1c2d4-0000-4000-8000-000000000002",
+        text: "Gözden geçir",
+        done: false,
+      },
+    ];
+
+    await db.insert(tasks).values({
+      userId: alice.id,
+      id: taskId,
+      title: "Write report",
+      date: "2026-10-28",
+      steps,
+      position: 1761500000000,
+    });
+
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+
+    expect(task.steps).toEqual(steps);
+    expect(task.position).toBe(1761500000000);
+    expect(task.date).toBe("2026-10-28");
+  });
+
+  it("accepts every task category used by the frontend", async () => {
+    const rows = [
+      "Work",
+      "Personal",
+      "Self Development",
+      "Health",
+      "Other",
+      "Project",
+    ].map((category, index) => ({
+      userId: alice.id,
+      id: `5a5a5a5a-0000-4000-8000-00000000000${index}`,
+      title: category,
+      category,
+      position: index,
+    }));
+
+    await db.insert(tasks).values(rows);
+
+    expect(await db.select().from(tasks)).toHaveLength(6);
+  });
+
+  it("rejects an unknown category, repeat rule or steps value", async () => {
+    const base = { userId: alice.id, id: taskId, title: "Task", position: 0 };
+
+    await expectDatabaseError(
+      db.insert(tasks).values({ ...base, category: "Shopping" }),
+      CHECK_VIOLATION,
+    );
+    await expectDatabaseError(
+      db.insert(tasks).values({ ...base, repeat: "monthly" }),
+      CHECK_VIOLATION,
+    );
+    await expectDatabaseError(
+      db.insert(tasks).values({ ...base, steps: { text: "not a list" } }),
+      CHECK_VIOLATION,
+    );
+  });
+
+  it("links a task to a project of the same user", async () => {
+    await db
+      .insert(projects)
+      .values({ userId: alice.id, id: sharedProjectId, name: "Portfolio" });
+
+    await db.insert(tasks).values({
+      userId: alice.id,
+      id: taskId,
+      projectId: sharedProjectId,
+      title: "Update case study",
+      category: "Project",
+      position: 0,
+    });
+
+    const [task] = await db.select().from(tasks).where(eq(tasks.id, taskId));
+
+    expect(task.projectId).toBe(sharedProjectId);
+  });
+
+  it("rejects a task that points to another user's project", async () => {
+    await db
+      .insert(projects)
+      .values({ userId: alice.id, id: sharedProjectId, name: "Portfolio" });
+
+    await expectDatabaseError(
+      db.insert(tasks).values({
+        userId: bob.id,
+        id: taskId,
+        projectId: sharedProjectId,
+        title: "Sneaky task",
+        position: 0,
+      }),
+      FOREIGN_KEY_VIOLATION,
+    );
+  });
+
+  it("lets two users keep a task with the same id", async () => {
+    await db.insert(tasks).values([
+      { userId: alice.id, id: taskId, title: "Demo task", position: 0 },
+      { userId: bob.id, id: taskId, title: "Demo task", position: 0 },
+    ]);
+
+    expect(
+      await db.select().from(tasks).where(eq(tasks.id, taskId)),
+    ).toHaveLength(2);
+  });
+
+  it("indexes tasks by user and repeat group", async () => {
+    const result = await db.execute(
+      sql`select indexdef from pg_indexes where indexname = 'tasks_user_repeat_group_idx'`,
+    );
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].indexdef).toContain("(user_id, repeat_group_id)");
   });
 
   it("seeds the development user only once", async () => {
