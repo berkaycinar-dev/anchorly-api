@@ -24,7 +24,10 @@ const taskFields = {
 };
 
 const ignoredFields = {
-  attachments: z.array(z.unknown()).optional(),
+  attachments: z
+    .array(z.unknown())
+    .optional()
+    .describe("Accepted for compatibility and ignored"),
 };
 
 export const taskIdParams = z.object({ id: z.uuid() });

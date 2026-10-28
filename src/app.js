@@ -1,16 +1,16 @@
 import express from "express";
+import swaggerUi from "swagger-ui-express";
+import { buildOpenApiDocument } from "./docs/openapi.js";
 import { devUser } from "./middleware/devUser.js";
 import {
   createErrorHandler,
   notFoundHandler,
 } from "./middleware/errorHandlers.js";
-import { createProjectsRouter } from "./routes/projects.js";
-import { createRoutinesRouter } from "./routes/routines.js";
-import { createSettingsRouter } from "./routes/settings.js";
-import { createTasksRouter } from "./routes/tasks.js";
+import { RESOURCE_ROUTERS } from "./routes/index.js";
 
 export function createApp({ database, logger = console }) {
   const app = express();
+  const openApiDocument = buildOpenApiDocument();
 
   app.disable("x-powered-by");
   app.use(express.json({ limit: "100kb" }));
@@ -24,12 +24,16 @@ export function createApp({ database, logger = console }) {
     }
   });
 
+  app.get("/openapi.json", (request, response) => {
+    response.json(openApiDocument);
+  });
+  app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
   app.use(devUser);
 
-  app.use("/me/settings", createSettingsRouter({ db: database.db }));
-  app.use("/projects", createProjectsRouter({ db: database.db }));
-  app.use("/routines", createRoutinesRouter({ db: database.db }));
-  app.use("/tasks", createTasksRouter({ db: database.db }));
+  for (const [path, createRouter] of RESOURCE_ROUTERS) {
+    app.use(path, createRouter({ db: database.db }));
+  }
 
   app.use(notFoundHandler);
   app.use(createErrorHandler({ logger }));

@@ -23,9 +23,11 @@
     "drizzle-orm": "^0.45.4",
     "express": "^5.3.0",
     "pg": "^8.23.1",
+    "swagger-ui-express": "^5.0.1",
     "zod": "^4.6.7"
   },
   "devDependencies": {
+    "@apidevtools/swagger-parser": "^13.1.0",
     "@eslint/js": "^10.0.1",
     "drizzle-kit": "^0.31.11",
     "eslint": "^10.13.0",
