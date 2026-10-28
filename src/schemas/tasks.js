@@ -61,4 +61,31 @@ export const updateTaskSchema = z.strictObject({
   ...ignoredFields,
 });
 
+export const reorderTasksSchema = z.strictObject({
+  orderedIds: z
+    .array(z.uuid())
+    .min(1)
+    .max(5000)
+    .refine((ids) => new Set(ids).size === ids.length, {
+      message: "Task ids must be unique",
+    }),
+});
+
+export const bulkTasksSchema = z.strictObject({
+  operations: z
+    .array(
+      z.discriminatedUnion("type", [
+        z.strictObject({ type: z.literal("create"), task: createTaskSchema }),
+        z.strictObject({
+          type: z.literal("update"),
+          id: z.uuid(),
+          patch: updateTaskSchema,
+        }),
+        z.strictObject({ type: z.literal("delete"), id: z.uuid() }),
+      ]),
+    )
+    .min(1)
+    .max(500),
+});
+
 export { COMPLETED_AT_MESSAGE };

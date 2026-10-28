@@ -1,8 +1,9 @@
 import { isDeepStrictEqual } from "node:util";
-import { and, asc, eq, isNull } from "drizzle-orm";
+import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { projects, tasks } from "../db/schema/index.js";
 import {
   conflictError,
+  HttpError,
   notFoundError,
   validationError,
 } from "../lib/httpError.js";
@@ -143,4 +144,84 @@ export async function deleteTask(db, userId, id) {
   if (!deleted) {
     throw notFoundError("Task not found");
   }
+}
+
+export async function reorderTasks(db, userId, orderedIds) {
+  const idArray = sql`array[${sql.join(
+    orderedIds.map((id) => sql`${id}`),
+    sql`, `,
+  )}]::uuid[]`;
+
+  await db.transaction(async (tx) => {
+    const result = await tx.execute(sql`
+      update ${tasks}
+      set position = ordered.position - 1, updated_at = now()
+      from unnest(${idArray}) with ordinality as ordered(id, position)
+      where ${tasks.userId} = ${userId}
+        and ${tasks.id} = ordered.id
+        and ${tasks.deletedAt} is null
+    `);
+
+    if (result.rowCount !== orderedIds.length) {
+      throw notFoundError("One or more tasks were not found");
+    }
+  });
+}
+
+const OPERATION_BODY_PATH = { create: "task", update: "patch" };
+
+function toOperationError(error, index, type) {
+  if (!(error instanceof HttpError)) {
+    return error;
+  }
+
+  const prefix = `body.operations.${index}`;
+  const details = error.details?.map((detail) => ({
+    ...detail,
+    path: detail.path.replace(
+      /^body/,
+      `${prefix}.${OPERATION_BODY_PATH[type]}`,
+    ),
+  })) ?? [{ path: prefix, message: error.message }];
+
+  return new HttpError(
+    error.status,
+    error.code,
+    `Operation ${index} (${type}) failed: ${error.message}`,
+    details,
+  );
+}
+
+async function runOperation(tx, userId, operation) {
+  if (operation.type === "create") {
+    const { task, created } = await createTask(tx, userId, operation.task);
+
+    return { type: "create", status: created ? 201 : 200, task };
+  }
+
+  if (operation.type === "update") {
+    const task = await updateTask(tx, userId, operation.id, operation.patch);
+
+    return { type: "update", status: 200, task };
+  }
+
+  await deleteTask(tx, userId, operation.id);
+
+  return { type: "delete", status: 204, id: operation.id };
+}
+
+export function bulkTasks(db, userId, operations) {
+  return db.transaction(async (tx) => {
+    const results = [];
+
+    for (const [index, operation] of operations.entries()) {
+      try {
+        results.push(await runOperation(tx, userId, operation));
+      } catch (error) {
+        throw toOperationError(error, index, operation.type);
+      }
+    }
+
+    return results;
+  });
 }

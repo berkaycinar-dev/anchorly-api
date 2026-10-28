@@ -1,14 +1,18 @@
 import { Router } from "express";
 import { validate } from "../middleware/validate.js";
 import {
+  bulkTasksSchema,
   createTaskSchema,
+  reorderTasksSchema,
   taskIdParams,
   updateTaskSchema,
 } from "../schemas/tasks.js";
 import {
+  bulkTasks,
   createTask,
   deleteTask,
   listTasks,
+  reorderTasks,
   updateTask,
 } from "../services/tasksService.js";
 
@@ -30,6 +34,33 @@ export function createTasksRouter({ db }) {
       );
 
       response.status(created ? 201 : 200).json(task);
+    },
+  );
+
+  router.post(
+    "/reorder",
+    validate({ body: reorderTasksSchema }),
+    async (request, response) => {
+      await reorderTasks(
+        db,
+        request.user.id,
+        request.validated.body.orderedIds,
+      );
+      response.status(204).end();
+    },
+  );
+
+  router.post(
+    "/bulk",
+    validate({ body: bulkTasksSchema }),
+    async (request, response) => {
+      const results = await bulkTasks(
+        db,
+        request.user.id,
+        request.validated.body.operations,
+      );
+
+      response.json({ results });
     },
   );
 
