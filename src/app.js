@@ -4,6 +4,7 @@ import {
   createErrorHandler,
   notFoundHandler,
 } from "./middleware/errorHandlers.js";
+import { createProjectsRouter } from "./routes/projects.js";
 import { createSettingsRouter } from "./routes/settings.js";
 
 export function createApp({ database, logger = console }) {
@@ -24,6 +25,7 @@ export function createApp({ database, logger = console }) {
   app.use(devUser);
 
   app.use("/me/settings", createSettingsRouter({ db: database.db }));
+  app.use("/projects", createProjectsRouter({ db: database.db }));
 
   app.use(notFoundHandler);
   app.use(createErrorHandler({ logger }));

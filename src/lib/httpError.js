@@ -12,6 +12,10 @@ export function notFoundError(message = "Resource not found") {
   return new HttpError(404, "NOT_FOUND", message);
 }
 
+export function conflictError(message) {
+  return new HttpError(409, "CONFLICT", message);
+}
+
 export function validationError(details) {
   return new HttpError(
     400,
