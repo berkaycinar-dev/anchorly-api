@@ -1,9 +1,15 @@
 import express from "express";
+import { devUser } from "./middleware/devUser.js";
+import {
+  createErrorHandler,
+  notFoundHandler,
+} from "./middleware/errorHandlers.js";
 
-export function createApp({ database }) {
+export function createApp({ database, logger = console }) {
   const app = express();
 
   app.disable("x-powered-by");
+  app.use(express.json({ limit: "100kb" }));
 
   app.get("/health", async (request, response) => {
     try {
@@ -13,6 +19,11 @@ export function createApp({ database }) {
       response.status(503).json({ status: "error", database: "unreachable" });
     }
   });
+
+  app.use(devUser);
+
+  app.use(notFoundHandler);
+  app.use(createErrorHandler({ logger }));
 
   return app;
 }
