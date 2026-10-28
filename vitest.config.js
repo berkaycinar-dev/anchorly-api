@@ -11,5 +11,7 @@ export default defineConfig({
     environment: "node",
     include: ["test/**/*.test.js"],
     env: readEnvFile(".env.test"),
+    globalSetup: "./test/globalSetup.js",
+    fileParallelism: false,
   },
 });

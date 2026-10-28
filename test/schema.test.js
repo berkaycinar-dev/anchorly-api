@@ -1,5 +1,5 @@
 import { eq, sql } from "drizzle-orm";
-import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
+import { beforeEach, describe, expect, it } from "vitest";
 import { DEV_USER } from "../src/constants/devUser.js";
 import {
   projects,
@@ -10,11 +10,8 @@ import {
   users,
 } from "../src/db/schema/index.js";
 import { seedDevUser } from "../src/db/seedDevUser.js";
-import {
-  createTestDatabase,
-  expectDatabaseError,
-  resetDatabase,
-} from "./helpers/database.js";
+import { expectDatabaseError } from "./helpers/assertions.js";
+import { useTestDatabase } from "./helpers/database.js";
 
 const CHECK_VIOLATION = "23514";
 const UNIQUE_VIOLATION = "23505";
@@ -33,21 +30,11 @@ const routineId = "88444dfd-8be1-4578-956f-037a0b71e8b7";
 const taskId = "4cbd7450-6231-43eb-96a2-3be6d2b1d532";
 
 describe("database schema", () => {
-  let database;
+  const testDatabase = useTestDatabase({ seed: false });
   let db;
 
-  beforeAll(async () => {
-    database = createTestDatabase();
-    db = database.db;
-    await resetDatabase(db);
-  });
-
-  afterAll(async () => {
-    await database?.close();
-  });
-
   beforeEach(async () => {
-    await db.execute(sql`truncate table users cascade`);
+    db = testDatabase.db;
     await db.insert(users).values([alice, bob]);
   });
 

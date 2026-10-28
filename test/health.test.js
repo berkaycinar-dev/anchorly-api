@@ -1,14 +1,13 @@
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
-import { loadConfig } from "../src/config.js";
-import { createDatabase } from "../src/db/client.js";
+import { createTestDatabase } from "./helpers/database.js";
 
 describe("GET /health", () => {
   let database;
 
   beforeAll(() => {
-    database = createDatabase(loadConfig().databaseUrl);
+    database = createTestDatabase();
   });
 
   afterAll(async () => {
