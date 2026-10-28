@@ -4,6 +4,7 @@ import {
   createErrorHandler,
   notFoundHandler,
 } from "./middleware/errorHandlers.js";
+import { createSettingsRouter } from "./routes/settings.js";
 
 export function createApp({ database, logger = console }) {
   const app = express();
@@ -21,6 +22,8 @@ export function createApp({ database, logger = console }) {
   });
 
   app.use(devUser);
+
+  app.use("/me/settings", createSettingsRouter({ db: database.db }));
 
   app.use(notFoundHandler);
   app.use(createErrorHandler({ logger }));
