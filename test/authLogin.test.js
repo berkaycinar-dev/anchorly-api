@@ -32,7 +32,9 @@ describe("POST /auth/login", () => {
   });
 
   function login(body, userAgent) {
-    const call = request(app).post("/auth/login");
+    const call = request(app)
+      .post("/auth/login")
+      .set("X-Anchorly-Client", "mobile");
 
     return (
       userAgent === undefined ? call : call.set("User-Agent", userAgent)

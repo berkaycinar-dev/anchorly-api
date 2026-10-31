@@ -56,6 +56,36 @@ function pathParameter(name, format) {
 }
 
 const idParameter = pathParameter("id", "uuid");
+
+const mobileClientHeader = {
+  name: "X-Anchorly-Client",
+  in: "header",
+  required: false,
+  description:
+    "Send `mobile` to receive the refresh token in the body instead of the HttpOnly cookie",
+  schema: { type: "string", enum: ["mobile"] },
+};
+
+const refreshCookieParameter = {
+  name: "anchorly_refresh",
+  in: "cookie",
+  required: false,
+  description:
+    "Web clients: the refresh token set by register, login or refresh",
+  schema: { type: "string" },
+};
+
+const setRefreshCookieHeader = {
+  "Set-Cookie": {
+    description:
+      "Web clients only: anchorly_refresh=<token>; HttpOnly; Secure; SameSite=Strict",
+    schema: { type: "string" },
+  },
+};
+
+function withSetCookie(response) {
+  return { ...response, headers: setRefreshCookieHeader };
+}
 const dateParameter = pathParameter("date", "date");
 
 function operation(tag, summary, details) {
@@ -121,9 +151,12 @@ export function buildOpenApiDocument() {
       },
       "/auth/register": {
         post: operation("Auth", "Create an account and sign in", {
+          parameters: [mobileClientHeader],
           requestBody: body(registerSchema),
           responses: {
-            201: json("Account created and signed in", ref("AuthSession")),
+            201: withSetCookie(
+              json("Account created and signed in", ref("AuthSession")),
+            ),
             400: errors[400],
             409: json(
               "An account with this email already exists (EMAIL_TAKEN)",
@@ -134,9 +167,10 @@ export function buildOpenApiDocument() {
       },
       "/auth/login": {
         post: operation("Auth", "Sign in with email and password", {
+          parameters: [mobileClientHeader],
           requestBody: body(loginSchema),
           responses: {
-            200: json("Signed in", ref("AuthSession")),
+            200: withSetCookie(json("Signed in", ref("AuthSession"))),
             400: errors[400],
             401: json(
               "The email or password is incorrect (INVALID_CREDENTIALS)",
@@ -150,11 +184,14 @@ export function buildOpenApiDocument() {
           "Auth",
           "Exchange a refresh token for a new pair of tokens",
           {
+            parameters: [refreshCookieParameter],
             requestBody: body(refreshSchema),
             responses: {
-              200: json(
-                "New tokens; the sent refresh token stops working",
-                ref("AuthSession"),
+              200: withSetCookie(
+                json(
+                  "New tokens, delivered the same way the refresh token came in; the sent token stops working",
+                  ref("AuthSession"),
+                ),
               ),
               400: errors[400],
               401: json(

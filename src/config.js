@@ -35,6 +35,11 @@ const authEnvironmentSchema = z.object({
     .max(3600)
     .default(900),
   REFRESH_TOKEN_TTL_DAYS: z.coerce.number().int().min(1).max(90).default(30),
+  AUTH_COOKIE_PATH: z
+    .string()
+    .regex(/^\/[A-Za-z0-9/_-]*$/, "AUTH_COOKIE_PATH must start with /")
+    .default("/auth"),
+  AUTH_COOKIE_SECURE: z.stringbool().default(true),
 });
 
 export function loadAuthConfig(environment = process.env) {
@@ -50,6 +55,8 @@ export function loadAuthConfig(environment = process.env) {
     jwtSecret: result.data.JWT_SECRET,
     accessTokenTtlSeconds: result.data.ACCESS_TOKEN_TTL_SECONDS,
     refreshTokenTtlDays: result.data.REFRESH_TOKEN_TTL_DAYS,
+    cookiePath: result.data.AUTH_COOKIE_PATH,
+    cookieSecure: result.data.AUTH_COOKIE_SECURE,
   };
 }
 

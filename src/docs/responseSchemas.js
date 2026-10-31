@@ -105,7 +105,10 @@ export const authSessionResponse = z.strictObject({
     .describe("Seconds until the access token expires"),
   refreshToken: z
     .string()
-    .describe("Opaque token for getting a new access token"),
+    .optional()
+    .describe(
+      "Opaque token for getting a new access token. Only in the body for mobile clients (X-Anchorly-Client: mobile) and body-based refreshes; web clients get it as the HttpOnly anchorly_refresh cookie",
+    ),
   refreshTokenExpiresAt: z.iso.datetime(),
 });
 

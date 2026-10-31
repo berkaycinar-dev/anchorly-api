@@ -21,7 +21,12 @@ export const registerSchema = z.strictObject({
 });
 
 export const refreshSchema = z.strictObject({
-  refreshToken: z.string().min(1).max(512),
+  refreshToken: z
+    .string()
+    .min(1)
+    .max(512)
+    .optional()
+    .describe("Mobile clients only; web clients send the refresh cookie"),
 });
 
 export const loginSchema = z.strictObject({

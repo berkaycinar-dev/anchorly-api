@@ -55,7 +55,29 @@ describe("loadAuthConfig", () => {
       jwtSecret,
       accessTokenTtlSeconds: 900,
       refreshTokenTtlDays: 30,
+      cookiePath: "/auth",
+      cookieSecure: true,
     });
+  });
+
+  it("reads the refresh cookie path and secure flag", () => {
+    const config = loadAuthConfig({
+      JWT_SECRET: jwtSecret,
+      AUTH_COOKIE_PATH: "/api/auth",
+      AUTH_COOKIE_SECURE: "false",
+    });
+
+    expect(config.cookiePath).toBe("/api/auth");
+    expect(config.cookieSecure).toBe(false);
+  });
+
+  it("rejects a cookie path without a leading slash or an unclear flag", () => {
+    expect(() =>
+      loadAuthConfig({ JWT_SECRET: jwtSecret, AUTH_COOKIE_PATH: "auth" }),
+    ).toThrow(/AUTH_COOKIE_PATH/);
+    expect(() =>
+      loadAuthConfig({ JWT_SECRET: jwtSecret, AUTH_COOKIE_SECURE: "maybe" }),
+    ).toThrow(/AUTH_COOKIE_SECURE/);
   });
 
   it("converts the token lifetimes from text to numbers", () => {

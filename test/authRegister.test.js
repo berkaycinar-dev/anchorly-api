@@ -52,7 +52,10 @@ describe("POST /auth/register", () => {
   }
 
   function register(body) {
-    return request(app).post("/auth/register").send(body);
+    return request(app)
+      .post("/auth/register")
+      .set("X-Anchorly-Client", "mobile")
+      .send(body);
   }
 
   it("creates an account and returns the public user fields", async () => {
@@ -97,6 +100,7 @@ describe("POST /auth/register", () => {
   it("signs the new user in with a stored session", async () => {
     const response = await request(app)
       .post("/auth/register")
+      .set("X-Anchorly-Client", "mobile")
       .set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0")
       .send({ email: "ali@example.com", password });
 

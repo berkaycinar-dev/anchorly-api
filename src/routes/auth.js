@@ -1,4 +1,11 @@
 import { Router } from "express";
+import { HttpError, invalidRefreshTokenError } from "../lib/httpError.js";
+import {
+  clearRefreshCookie,
+  isMobileClient,
+  readRefreshCookie,
+  setRefreshCookie,
+} from "../lib/refreshCookie.js";
 import { describeUserAgent } from "../lib/userAgent.js";
 import { validate } from "../middleware/validate.js";
 import { loginSchema, refreshSchema, registerSchema } from "../schemas/auth.js";
@@ -18,6 +25,21 @@ function withDeviceName(request) {
   };
 }
 
+function sendSession(response, auth, result, { useCookie, status = 200 }) {
+  if (!useCookie) {
+    response.status(status).json(result);
+    return;
+  }
+
+  const { refreshToken, ...body } = result;
+
+  setRefreshCookie(response, auth, {
+    refreshToken,
+    expiresAt: result.refreshTokenExpiresAt,
+  });
+  response.status(status).json(body);
+}
+
 export function createAuthRouter({ db, auth, requireAuth }) {
   const router = Router();
 
@@ -27,7 +49,10 @@ export function createAuthRouter({ db, auth, requireAuth }) {
     async (request, response) => {
       const result = await registerUser(db, withDeviceName(request), { auth });
 
-      response.status(201).json(result);
+      sendSession(response, auth, result, {
+        useCookie: !isMobileClient(request),
+        status: 201,
+      });
     },
   );
 
@@ -37,7 +62,9 @@ export function createAuthRouter({ db, auth, requireAuth }) {
     async (request, response) => {
       const result = await loginUser(db, withDeviceName(request), { auth });
 
-      response.json(result);
+      sendSession(response, auth, result, {
+        useCookie: !isMobileClient(request),
+      });
     },
   );
 
@@ -45,12 +72,25 @@ export function createAuthRouter({ db, auth, requireAuth }) {
     "/refresh",
     validate({ body: refreshSchema }),
     async (request, response) => {
-      const result = await refreshSession(db, {
-        refreshToken: request.validated.body.refreshToken,
-        auth,
-      });
+      const bodyToken = request.validated.body.refreshToken;
+      const useCookie = !bodyToken;
+      const refreshToken = bodyToken ?? readRefreshCookie(request);
 
-      response.json(result);
+      try {
+        if (!refreshToken) {
+          throw invalidRefreshTokenError();
+        }
+
+        const result = await refreshSession(db, { refreshToken, auth });
+
+        sendSession(response, auth, result, { useCookie });
+      } catch (error) {
+        if (useCookie && error instanceof HttpError && error.status === 401) {
+          clearRefreshCookie(response, auth);
+        }
+
+        throw error;
+      }
     },
   );
 
@@ -60,6 +100,7 @@ export function createAuthRouter({ db, auth, requireAuth }) {
       sessionId: request.user.sessionId,
     });
 
+    clearRefreshCookie(response, auth);
     response.status(204).end();
   });
 

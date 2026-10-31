@@ -26,7 +26,12 @@ describe("auth sessions", () => {
     await db.delete(sessions);
 
     signIn = async () =>
-      (await request(app).post("/auth/login").send({ email, password })).body;
+      (
+        await request(app)
+          .post("/auth/login")
+          .set("X-Anchorly-Client", "mobile")
+          .send({ email, password })
+      ).body;
   });
 
   function refresh(refreshToken) {
@@ -246,9 +251,8 @@ describe("auth sessions", () => {
       expect(session.revokedAt).toBeNull();
     });
 
-    it("rejects a missing token or extra fields", async () => {
+    it("rejects an empty token or extra fields", async () => {
       for (const body of [
-        {},
         { refreshToken: "" },
         { refreshToken: "x", userId: "me" },
       ]) {

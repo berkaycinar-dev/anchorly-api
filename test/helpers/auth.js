@@ -6,6 +6,8 @@ export const TEST_AUTH = Object.freeze({
   jwtSecret: "test-only-secret-that-is-long-enough-1234",
   accessTokenTtlSeconds: 900,
   refreshTokenTtlDays: 30,
+  cookiePath: "/auth",
+  cookieSecure: true,
 });
 
 export async function signedInAs(app, db, { userId = DEV_USER.id } = {}) {
