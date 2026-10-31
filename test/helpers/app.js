@@ -37,15 +37,24 @@ export function createTestApp({
   logger = { error() {}, info() {} },
   ...overrides
 }) {
+  const backgroundTasks = [];
   const app = createApp({
     database,
     auth,
     mailer,
     appUrl: TEST_APP_URL,
     logger,
+    runInBackground: (task) => {
+      backgroundTasks.push(task().catch((error) => logger.error(error)));
+    },
     ...overrides,
   });
 
   app.locals.mailer = mailer;
+  app.locals.backgroundTasks = backgroundTasks;
   return app;
+}
+
+export async function settleBackgroundTasks(app) {
+  await Promise.all(app.locals.backgroundTasks.splice(0));
 }

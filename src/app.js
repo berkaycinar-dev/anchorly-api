@@ -14,6 +14,9 @@ export function createApp({
   auth,
   mailer,
   appUrl,
+  runInBackground = (task) => {
+    task().catch((error) => logger.error(error));
+  },
 }) {
   if (!auth?.jwtSecret) {
     throw new Error("createApp needs the auth settings (see loadAuthConfig)");
@@ -56,6 +59,7 @@ export function createApp({
         mailer,
         appUrl,
         logger,
+        runInBackground,
       }),
     );
   }

@@ -29,6 +29,15 @@ export const verifyEmailSchema = z.strictObject({
   token: z.string().min(1).max(512),
 });
 
+export const forgotPasswordSchema = z.strictObject({
+  email: emailSchema,
+});
+
+export const resetPasswordSchema = z.strictObject({
+  token: z.string().min(1).max(512),
+  password: passwordSchema,
+});
+
 export const refreshSchema = z.strictObject({
   refreshToken: z
     .string()

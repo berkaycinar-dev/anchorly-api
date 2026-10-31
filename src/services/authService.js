@@ -1,6 +1,9 @@
 import { and, eq, isNull, or } from "drizzle-orm";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
-import { VERIFY_EMAIL_TTL_HOURS } from "../constants/emailTokens.js";
+import {
+  RESET_PASSWORD_TTL_HOURS,
+  VERIFY_EMAIL_TTL_HOURS,
+} from "../constants/emailTokens.js";
 import { sessions, userSettings, users } from "../db/schema/index.js";
 import {
   emailAlreadyVerifiedError,
@@ -307,5 +310,67 @@ export async function prepareVerificationResend(db, { userId }) {
       language: row.language ?? DEFAULT_SETTINGS.language,
       token,
     };
+  });
+}
+
+export async function preparePasswordReset(db, { email }) {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ user: users, language: userSettings.language })
+      .from(users)
+      .leftJoin(userSettings, eq(userSettings.userId, users.id))
+      .where(and(eq(users.email, email), isNull(users.deletedAt)));
+
+    if (!row) {
+      return null;
+    }
+
+    const token = await issueEmailToken(tx, {
+      userId: row.user.id,
+      purpose: "reset_password",
+      email: row.user.email,
+      ttlHours: RESET_PASSWORD_TTL_HOURS,
+    });
+
+    return {
+      user: row.user,
+      language: row.language ?? DEFAULT_SETTINGS.language,
+      token,
+    };
+  });
+}
+
+export async function resetPassword(db, { token, password, now = new Date() }) {
+  const passwordHash = await hashPassword(password);
+
+  await db.transaction(async (tx) => {
+    const issued = await consumeEmailToken(tx, {
+      token,
+      purpose: "reset_password",
+      now,
+    });
+
+    if (!issued) {
+      throw invalidEmailTokenError();
+    }
+
+    const [user] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, issued.userId));
+
+    if (!user || user.email !== issued.email) {
+      throw invalidEmailTokenError();
+    }
+
+    await tx
+      .update(users)
+      .set({ passwordHash, emailVerifiedAt: user.emailVerifiedAt ?? now })
+      .where(eq(users.id, user.id));
+
+    await tx
+      .update(sessions)
+      .set({ revokedAt: now })
+      .where(and(eq(sessions.userId, user.id), isNull(sessions.revokedAt)));
   });
 }

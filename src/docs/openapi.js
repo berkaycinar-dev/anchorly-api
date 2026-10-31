@@ -3,6 +3,8 @@ import {
   loginSchema,
   refreshSchema,
   registerSchema,
+  forgotPasswordSchema,
+  resetPasswordSchema,
   verifyEmailSchema,
 } from "../schemas/auth.js";
 import {
@@ -242,6 +244,38 @@ export function buildOpenApiDocument() {
             ),
           },
         }),
+      },
+      "/auth/forgot-password": {
+        post: operation("Auth", "Send a password reset link", {
+          description:
+            "Always answers 202, whether or not an account uses this email, so the answer reveals nothing about registered addresses.",
+          requestBody: body(forgotPasswordSchema),
+          responses: {
+            202: {
+              description:
+                "If an account uses this email, a link is on its way",
+            },
+            400: errors[400],
+          },
+        }),
+      },
+      "/auth/reset-password": {
+        post: operation(
+          "Auth",
+          "Choose a new password with the token from the email link",
+          {
+            description:
+              "Signs the user out on every device and marks the email address as verified.",
+            requestBody: body(resetPasswordSchema),
+            responses: {
+              204: noContent,
+              400: json(
+                "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), or the body is invalid",
+                ref("Error"),
+              ),
+            },
+          },
+        ),
       },
       "/auth/logout": {
         post: operation("Auth", "Sign out of the current session", {

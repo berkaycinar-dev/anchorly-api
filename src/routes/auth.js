@@ -13,20 +13,27 @@ import {
 import { describeUserAgent } from "../lib/userAgent.js";
 import { validate } from "../middleware/validate.js";
 import {
+  forgotPasswordSchema,
   loginSchema,
   refreshSchema,
   registerSchema,
+  resetPasswordSchema,
   verifyEmailSchema,
 } from "../schemas/auth.js";
 import {
   loginUser,
+  preparePasswordReset,
   prepareVerificationResend,
   refreshSession,
   registerUser,
+  resetPassword,
   revokeSession,
   verifyEmail,
 } from "../services/authService.js";
-import { sendVerificationEmail } from "../services/verificationMail.js";
+import {
+  sendPasswordResetEmail,
+  sendVerificationEmail,
+} from "../services/accountMail.js";
 
 function withDeviceName(request) {
   const body = request.validated.body;
@@ -59,6 +66,7 @@ export function createAuthRouter({
   mailer,
   appUrl,
   logger = console,
+  runInBackground,
 }) {
   const router = Router();
 
@@ -156,6 +164,35 @@ export function createAuthRouter({
         throw emailNotSentError();
       }
 
+      response.status(204).end();
+    },
+  );
+
+  router.post(
+    "/forgot-password",
+    validate({ body: forgotPasswordSchema }),
+    async (request, response) => {
+      const { email } = request.validated.body;
+
+      response.status(202).end();
+
+      runInBackground(async () => {
+        const reset = await preparePasswordReset(db, { email });
+
+        if (reset) {
+          await sendPasswordResetEmail({ mailer, appUrl, ...reset });
+        }
+      });
+    },
+  );
+
+  router.post(
+    "/reset-password",
+    validate({ body: resetPasswordSchema }),
+    async (request, response) => {
+      await resetPassword(db, request.validated.body);
+
+      clearRefreshCookie(response, auth);
       response.status(204).end();
     },
   );
