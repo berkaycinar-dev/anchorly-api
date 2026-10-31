@@ -96,8 +96,17 @@ export const userResponse = z.strictObject({
   createdAt: z.iso.datetime(),
 });
 
-export const registerResponse = z.strictObject({
+export const authSessionResponse = z.strictObject({
   user: userResponse,
+  accessToken: z.string().describe("JWT for the Authorization header"),
+  accessTokenExpiresIn: z
+    .number()
+    .int()
+    .describe("Seconds until the access token expires"),
+  refreshToken: z
+    .string()
+    .describe("Opaque token for getting a new access token"),
+  refreshTokenExpiresAt: z.iso.datetime(),
 });
 
 export const RESPONSE_SCHEMAS = {
@@ -110,5 +119,5 @@ export const RESPONSE_SCHEMAS = {
   Task: taskResponse,
   BulkResult: bulkResultResponse,
   User: userResponse,
-  RegisterResult: registerResponse,
+  AuthSession: authSessionResponse,
 };

@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { registerSchema } from "../schemas/auth.js";
+import { loginSchema, registerSchema } from "../schemas/auth.js";
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -89,13 +89,26 @@ export function buildOpenApiDocument() {
         }),
       },
       "/auth/register": {
-        post: operation("Auth", "Create an account with email and password", {
+        post: operation("Auth", "Create an account and sign in", {
           requestBody: body(registerSchema),
           responses: {
-            201: json("Account created", ref("RegisterResult")),
+            201: json("Account created and signed in", ref("AuthSession")),
             400: errors[400],
             409: json(
               "An account with this email already exists (EMAIL_TAKEN)",
+              ref("Error"),
+            ),
+          },
+        }),
+      },
+      "/auth/login": {
+        post: operation("Auth", "Sign in with email and password", {
+          requestBody: body(loginSchema),
+          responses: {
+            200: json("Signed in", ref("AuthSession")),
+            400: errors[400],
+            401: json(
+              "The email or password is incorrect (INVALID_CREDENTIALS)",
               ref("Error"),
             ),
           },

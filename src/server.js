@@ -1,13 +1,14 @@
 import { createApp } from "./app.js";
-import { loadConfig, loadEnvFile } from "./config.js";
+import { loadAuthConfig, loadConfig, loadEnvFile } from "./config.js";
 import { createDatabase } from "./db/client.js";
 
 loadEnvFile();
 
 const config = loadConfig();
+const auth = loadAuthConfig();
 const database = createDatabase(config.databaseUrl);
 
-const server = createApp({ database }).listen(config.port, () => {
+const server = createApp({ database, auth }).listen(config.port, () => {
   console.log(`anchorly-api listening on http://localhost:${config.port}`);
 });
 

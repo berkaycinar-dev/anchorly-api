@@ -2,9 +2,11 @@ import { eq } from "drizzle-orm";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
-import { userSettings, users } from "../src/db/schema/index.js";
+import { sessions, userSettings, users } from "../src/db/schema/index.js";
 import { verifyPassword } from "../src/lib/password.js";
+import { hashToken, verifyAccessToken } from "../src/lib/tokens.js";
 import { registerUser } from "../src/services/authService.js";
+import { TEST_AUTH } from "./helpers/auth.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const password = "correct horse battery";
@@ -40,7 +42,7 @@ describe("POST /auth/register", () => {
   let db;
 
   beforeEach(() => {
-    app = createApp({ database: testDatabase.database });
+    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
     db = testDatabase.db;
   });
 
@@ -69,6 +71,10 @@ describe("POST /auth/register", () => {
         emailVerifiedAt: null,
         createdAt: expect.any(String),
       },
+      accessToken: expect.any(String),
+      accessTokenExpiresIn: 900,
+      refreshToken: expect.stringMatching(/^[A-Za-z0-9_-]{43}$/),
+      refreshTokenExpiresAt: expect.any(String),
     });
     expect(new Date(response.body.user.createdAt).toString()).not.toBe(
       "Invalid Date",
@@ -86,6 +92,30 @@ describe("POST /auth/register", () => {
     );
     expect(JSON.stringify(response.body)).not.toContain("argon2");
     expect(response.body.user).not.toHaveProperty("passwordHash");
+  });
+
+  it("signs the new user in with a stored session", async () => {
+    const response = await request(app)
+      .post("/auth/register")
+      .set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0")
+      .send({ email: "ali@example.com", password });
+
+    const rows = await db.select().from(sessions);
+
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      userId: response.body.user.id,
+      tokenHash: hashToken(response.body.refreshToken),
+      deviceName: "Firefox · Linux",
+    });
+    await expect(
+      verifyAccessToken(response.body.accessToken, {
+        secret: TEST_AUTH.jwtSecret,
+      }),
+    ).resolves.toEqual({
+      userId: response.body.user.id,
+      sessionId: rows[0].id,
+    });
   });
 
   it("creates default settings for the new account", async () => {
@@ -255,6 +285,7 @@ describe("POST /auth/register", () => {
       { passwordHash: "$argon2id$fake" },
       { emailVerifiedAt: "2026-10-31T12:00:00Z" },
       { id: "11111111-1111-4111-8111-111111111111" },
+      { sessionId: "22222222-2222-4222-8222-222222222222" },
     ]) {
       const response = await register({
         email: "ali@example.com",
@@ -270,12 +301,14 @@ describe("POST /auth/register", () => {
 
   it("does not leave a user behind when creating the settings fails", async () => {
     await expect(
-      registerUser(failOnSettingsInsert(db), {
-        email: "ali@example.com",
-        password,
-      }),
+      registerUser(
+        failOnSettingsInsert(db),
+        { email: "ali@example.com", password },
+        { auth: TEST_AUTH },
+      ),
     ).rejects.toThrow("settings insert failed");
 
     expect(await findUser("ali@example.com")).toBeUndefined();
+    expect(await db.select().from(sessions)).toEqual([]);
   });
 });

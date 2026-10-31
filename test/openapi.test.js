@@ -4,17 +4,18 @@ import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { buildOpenApiDocument } from "../src/docs/openapi.js";
 import {
+  authSessionResponse,
   bulkResultResponse,
   errorResponse,
   healthResponse,
   projectResponse,
-  registerResponse,
   routineCheckResponse,
   routineResponse,
   settingsResponse,
   taskResponse,
 } from "../src/docs/responseSchemas.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "../src/routes/index.js";
+import { TEST_AUTH } from "./helpers/auth.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
@@ -98,7 +99,7 @@ describe("documented response shapes", () => {
   const taskId = "4cbd7450-6231-43eb-96a2-3be6d2b1d532";
 
   beforeEach(() => {
-    app = createApp({ database: testDatabase.database });
+    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
   });
 
   it("match what the API really sends", async () => {
@@ -143,6 +144,12 @@ describe("documented response shapes", () => {
     const emailTaken = await request(app)
       .post("/auth/register")
       .send({ email: "shape@example.com", password: "long enough" });
+    const login = await request(app)
+      .post("/auth/login")
+      .send({ email: "shape@example.com", password: "long enough" });
+    const wrongPassword = await request(app)
+      .post("/auth/login")
+      .send({ email: "shape@example.com", password: "wrong password" });
     const notFound = await request(app).delete(`/tasks/${taskId}`);
     const invalid = await request(app).post("/projects").send({ name: "" });
 
@@ -154,8 +161,10 @@ describe("documented response shapes", () => {
     expect(() => routineCheckResponse.array().parse(checks.body)).not.toThrow();
     expect(() => taskResponse.parse(task.body)).not.toThrow();
     expect(() => bulkResultResponse.parse(bulk.body)).not.toThrow();
-    expect(() => registerResponse.parse(registration.body)).not.toThrow();
+    expect(() => authSessionResponse.parse(registration.body)).not.toThrow();
     expect(() => errorResponse.parse(emailTaken.body)).not.toThrow();
+    expect(() => authSessionResponse.parse(login.body)).not.toThrow();
+    expect(() => errorResponse.parse(wrongPassword.body)).not.toThrow();
     expect(() => errorResponse.parse(notFound.body)).not.toThrow();
     expect(() => errorResponse.parse(invalid.body)).not.toThrow();
     expect(invalid.body.error.details.length).toBeGreaterThan(0);

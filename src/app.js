@@ -8,7 +8,7 @@ import {
 } from "./middleware/errorHandlers.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
 
-export function createApp({ database, logger = console }) {
+export function createApp({ database, logger = console, auth }) {
   const app = express();
   const openApiDocument = buildOpenApiDocument();
 
@@ -30,7 +30,7 @@ export function createApp({ database, logger = console }) {
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
   for (const [path, createRouter] of PUBLIC_ROUTERS) {
-    app.use(path, createRouter({ db: database.db }));
+    app.use(path, createRouter({ db: database.db, auth }));
   }
 
   app.use(devUser);

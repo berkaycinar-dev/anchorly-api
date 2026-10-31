@@ -24,6 +24,14 @@ export function emailTakenError() {
   );
 }
 
+export function invalidCredentialsError() {
+  return new HttpError(
+    401,
+    "INVALID_CREDENTIALS",
+    "The email or password is incorrect",
+  );
+}
+
 export function validationError(details) {
   return new HttpError(
     400,
