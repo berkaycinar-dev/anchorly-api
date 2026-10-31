@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadAuthConfig, loadConfig } from "../src/config.js";
+import { loadAuthConfig, loadConfig, loadMailConfig } from "../src/config.js";
 
 const validEnvironment = {
   DATABASE_URL: "postgres://anchorly:secret@localhost:5432/anchorly_dev",
@@ -117,5 +117,54 @@ describe("loadAuthConfig", () => {
 
   it("does not require the auth settings for loading the database config", () => {
     expect(() => loadConfig(validEnvironment)).not.toThrow();
+  });
+});
+
+describe("loadMailConfig", () => {
+  it("prints emails to the console and links to the local frontend by default", () => {
+    expect(loadMailConfig({})).toEqual({
+      provider: "console",
+      from: "Anchorly <no-reply@anchorly.local>",
+      resendApiKey: null,
+      appUrl: "http://localhost:5173",
+    });
+  });
+
+  it("reads the Resend settings and drops a trailing slash from the app url", () => {
+    const config = loadMailConfig({
+      MAIL_PROVIDER: "resend",
+      RESEND_API_KEY: "re_secret",
+      MAIL_FROM: "Anchorly <no-reply@anchorly.app>",
+      APP_URL: "https://anchorly.app/",
+    });
+
+    expect(config).toEqual({
+      provider: "resend",
+      from: "Anchorly <no-reply@anchorly.app>",
+      resendApiKey: "re_secret",
+      appUrl: "https://anchorly.app",
+    });
+  });
+
+  it("requires a Resend key when Resend is chosen, even if the line is empty", () => {
+    expect(() => loadMailConfig({ MAIL_PROVIDER: "resend" })).toThrow(
+      /RESEND_API_KEY/,
+    );
+    expect(() =>
+      loadMailConfig({ MAIL_PROVIDER: "resend", RESEND_API_KEY: "  " }),
+    ).toThrow(/RESEND_API_KEY/);
+  });
+
+  it("accepts the empty key line from the example file when printing to the console", () => {
+    expect(loadMailConfig({ RESEND_API_KEY: "" }).resendApiKey).toBeNull();
+  });
+
+  it("rejects an unknown provider or an app url that is not http", () => {
+    expect(() => loadMailConfig({ MAIL_PROVIDER: "smtp" })).toThrow(
+      /MAIL_PROVIDER/,
+    );
+    expect(() => loadMailConfig({ APP_URL: "javascript:alert(1)" })).toThrow(
+      /APP_URL/,
+    );
   });
 });

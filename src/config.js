@@ -60,6 +60,42 @@ export function loadAuthConfig(environment = process.env) {
   };
 }
 
+const mailEnvironmentSchema = z
+  .object({
+    MAIL_PROVIDER: z.enum(["console", "resend"]).default("console"),
+    MAIL_FROM: z.string().min(3).default("Anchorly <no-reply@anchorly.local>"),
+    RESEND_API_KEY: z
+      .string()
+      .optional()
+      .transform((value) => value?.trim() || undefined),
+    APP_URL: z.url({ protocol: /^https?$/ }).default("http://localhost:5173"),
+  })
+  .refine(
+    (environment) =>
+      environment.MAIL_PROVIDER !== "resend" || environment.RESEND_API_KEY,
+    {
+      message: "RESEND_API_KEY is required when MAIL_PROVIDER is resend",
+      path: ["RESEND_API_KEY"],
+    },
+  );
+
+export function loadMailConfig(environment = process.env) {
+  const result = mailEnvironmentSchema.safeParse(environment);
+
+  if (!result.success) {
+    throw new Error(
+      `Invalid environment variables:\n${z.prettifyError(result.error)}`,
+    );
+  }
+
+  return {
+    provider: result.data.MAIL_PROVIDER,
+    from: result.data.MAIL_FROM,
+    resendApiKey: result.data.RESEND_API_KEY ?? null,
+    appUrl: result.data.APP_URL.replace(/\/+$/, ""),
+  };
+}
+
 export function loadEnvFile(path = ".env") {
   if (existsSync(path)) {
     process.loadEnvFile(path);

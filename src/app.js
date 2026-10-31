@@ -8,7 +8,13 @@ import {
 import { createRequireAuth } from "./middleware/requireAuth.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
 
-export function createApp({ database, logger = console, auth }) {
+export function createApp({
+  database,
+  logger = console,
+  auth,
+  mailer,
+  appUrl,
+}) {
   if (!auth?.jwtSecret) {
     throw new Error("createApp needs the auth settings (see loadAuthConfig)");
   }
@@ -35,7 +41,10 @@ export function createApp({ database, logger = console, auth }) {
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
   for (const [path, createRouter] of PUBLIC_ROUTERS) {
-    app.use(path, createRouter({ db: database.db, auth, requireAuth }));
+    app.use(
+      path,
+      createRouter({ db: database.db, auth, requireAuth, mailer, appUrl }),
+    );
   }
 
   for (const [path, createRouter] of RESOURCE_ROUTERS) {
