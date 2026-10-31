@@ -7,6 +7,7 @@ import {
   projects,
   routineChecks,
   routines,
+  sessions,
   tasks,
   userSettings,
   users,
@@ -29,6 +30,7 @@ const USER_DATA_TABLES = {
   projects,
   routines,
   routine_checks: routineChecks,
+  sessions,
   tasks,
 };
 
@@ -56,6 +58,12 @@ async function seedVictim(db) {
     projectId,
     title: "Victim task",
     position: 0,
+  });
+  await db.insert(sessions).values({
+    userId: victim.id,
+    tokenHash: "victim-token-hash",
+    deviceName: "Victim phone",
+    expiresAt: new Date("2026-11-30T00:00:00Z"),
   });
 }
 
