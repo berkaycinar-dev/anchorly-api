@@ -36,19 +36,30 @@ export async function updateMe(db, userId, { displayName }) {
   return toPublicUser(updated);
 }
 
+async function confirmPassword(user, password) {
+  if (!user.passwordHash) {
+    throw passwordNotSetError();
+  }
+
+  if (!(await verifyPassword(user.passwordHash, password))) {
+    throw invalidCurrentPasswordError();
+  }
+}
+
+export async function deleteAccount(db, { userId, password }) {
+  const user = await findUser(db, userId);
+
+  await confirmPassword(user, password);
+  await db.delete(users).where(eq(users.id, userId));
+}
+
 export async function changePassword(
   db,
   { userId, sessionId, currentPassword, newPassword, now = new Date() },
 ) {
   const user = await findUser(db, userId);
 
-  if (!user.passwordHash) {
-    throw passwordNotSetError();
-  }
-
-  if (!(await verifyPassword(user.passwordHash, currentPassword))) {
-    throw invalidCurrentPasswordError();
-  }
+  await confirmPassword(user, currentPassword);
 
   const passwordHash = await hashPassword(newPassword);
 

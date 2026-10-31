@@ -16,7 +16,11 @@ import {
   setRoutineCheckSchema,
   updateRoutineSchema,
 } from "../schemas/routines.js";
-import { changePasswordSchema, updateMeSchema } from "../schemas/account.js";
+import {
+  changePasswordSchema,
+  deleteAccountSchema,
+  updateMeSchema,
+} from "../schemas/account.js";
 import { settingsPatchSchema } from "../schemas/settings.js";
 import {
   bulkTasksSchema,
@@ -300,6 +304,18 @@ export function buildOpenApiDocument() {
           responses: {
             200: json("The user after the change", ref("UserResult")),
             400: errors[400],
+          },
+        }),
+        delete: operation("Account", "Delete the account and all its data", {
+          description:
+            "Needs the password. Deletes the user with every task, routine, project, setting, session and email link at once; this cannot be undone.",
+          requestBody: body(deleteAccountSchema),
+          responses: {
+            204: noContent,
+            400: json(
+              "The password is incorrect (INVALID_CURRENT_PASSWORD), the account has no password yet (PASSWORD_NOT_SET), or the body is invalid",
+              ref("Error"),
+            ),
           },
         }),
       },

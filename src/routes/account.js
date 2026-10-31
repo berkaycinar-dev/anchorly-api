@@ -1,9 +1,19 @@
 import { Router } from "express";
+import { clearRefreshCookie } from "../lib/refreshCookie.js";
 import { validate } from "../middleware/validate.js";
-import { changePasswordSchema, updateMeSchema } from "../schemas/account.js";
-import { changePassword, getMe, updateMe } from "../services/accountService.js";
+import {
+  changePasswordSchema,
+  deleteAccountSchema,
+  updateMeSchema,
+} from "../schemas/account.js";
+import {
+  changePassword,
+  deleteAccount,
+  getMe,
+  updateMe,
+} from "../services/accountService.js";
 
-export function createAccountRouter({ db }) {
+export function createAccountRouter({ db, auth }) {
   const router = Router();
 
   router.get("/", async (request, response) => {
@@ -17,6 +27,20 @@ export function createAccountRouter({ db }) {
       const user = await updateMe(db, request.user.id, request.validated.body);
 
       response.json({ user });
+    },
+  );
+
+  router.delete(
+    "/",
+    validate({ body: deleteAccountSchema }),
+    async (request, response) => {
+      await deleteAccount(db, {
+        userId: request.user.id,
+        password: request.validated.body.password,
+      });
+
+      clearRefreshCookie(response, auth);
+      response.status(204).end();
     },
   );
 

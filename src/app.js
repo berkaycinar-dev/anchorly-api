@@ -65,7 +65,7 @@ export function createApp({
   }
 
   for (const [path, createRouter] of RESOURCE_ROUTERS) {
-    app.use(path, requireAuth, createRouter({ db: database.db }));
+    app.use(path, requireAuth, createRouter({ db: database.db, auth }));
   }
 
   app.use(notFoundHandler);
