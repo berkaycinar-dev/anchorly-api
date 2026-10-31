@@ -1,8 +1,13 @@
 import { Router } from "express";
 import { describeUserAgent } from "../lib/userAgent.js";
 import { validate } from "../middleware/validate.js";
-import { loginSchema, registerSchema } from "../schemas/auth.js";
-import { loginUser, registerUser } from "../services/authService.js";
+import { loginSchema, refreshSchema, registerSchema } from "../schemas/auth.js";
+import {
+  loginUser,
+  refreshSession,
+  registerUser,
+  revokeSession,
+} from "../services/authService.js";
 
 function withDeviceName(request) {
   const body = request.validated.body;
@@ -13,7 +18,7 @@ function withDeviceName(request) {
   };
 }
 
-export function createAuthRouter({ db, auth }) {
+export function createAuthRouter({ db, auth, requireAuth }) {
   const router = Router();
 
   router.post(
@@ -35,6 +40,28 @@ export function createAuthRouter({ db, auth }) {
       response.json(result);
     },
   );
+
+  router.post(
+    "/refresh",
+    validate({ body: refreshSchema }),
+    async (request, response) => {
+      const result = await refreshSession(db, {
+        refreshToken: request.validated.body.refreshToken,
+        auth,
+      });
+
+      response.json(result);
+    },
+  );
+
+  router.post("/logout", requireAuth, async (request, response) => {
+    await revokeSession(db, {
+      userId: request.user.id,
+      sessionId: request.user.sessionId,
+    });
+
+    response.status(204).end();
+  });
 
   return router;
 }

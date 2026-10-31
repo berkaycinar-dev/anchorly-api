@@ -43,6 +43,14 @@ export function unauthorizedError() {
   return error;
 }
 
+export function invalidRefreshTokenError() {
+  return new HttpError(
+    401,
+    "INVALID_REFRESH_TOKEN",
+    "The refresh token is invalid, expired or revoked",
+  );
+}
+
 export function validationError(details) {
   return new HttpError(
     400,

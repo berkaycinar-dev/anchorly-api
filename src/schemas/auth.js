@@ -20,6 +20,10 @@ export const registerSchema = z.strictObject({
   deviceName: deviceNameSchema.optional(),
 });
 
+export const refreshSchema = z.strictObject({
+  refreshToken: z.string().min(1).max(512),
+});
+
 export const loginSchema = z.strictObject({
   email: emailSchema,
   password: z.string().min(1).max(128),

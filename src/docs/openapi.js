@@ -1,5 +1,5 @@
 import { z } from "zod";
-import { loginSchema, registerSchema } from "../schemas/auth.js";
+import { loginSchema, refreshSchema, registerSchema } from "../schemas/auth.js";
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -140,6 +140,38 @@ export function buildOpenApiDocument() {
             400: errors[400],
             401: json(
               "The email or password is incorrect (INVALID_CREDENTIALS)",
+              ref("Error"),
+            ),
+          },
+        }),
+      },
+      "/auth/refresh": {
+        post: operation(
+          "Auth",
+          "Exchange a refresh token for a new pair of tokens",
+          {
+            requestBody: body(refreshSchema),
+            responses: {
+              200: json(
+                "New tokens; the sent refresh token stops working",
+                ref("AuthSession"),
+              ),
+              400: errors[400],
+              401: json(
+                "The refresh token is invalid, expired or revoked (INVALID_REFRESH_TOKEN)",
+                ref("Error"),
+              ),
+            },
+          },
+        ),
+      },
+      "/auth/logout": {
+        post: operation("Auth", "Sign out of the current session", {
+          security: [{ bearerAuth: [] }],
+          responses: {
+            204: noContent,
+            401: json(
+              "The access token is missing, invalid, expired or revoked (UNAUTHORIZED)",
               ref("Error"),
             ),
           },

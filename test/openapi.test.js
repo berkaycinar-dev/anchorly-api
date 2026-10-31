@@ -27,7 +27,7 @@ function listImplementedOperations() {
     ...PUBLIC_ROUTERS,
     ...RESOURCE_ROUTERS,
   ]) {
-    const router = createRouter({ db: null });
+    const router = createRouter({ db: null, requireAuth: () => {} });
 
     for (const layer of router.stack.filter((item) => item.route)) {
       const routePath = layer.route.path === "/" ? "" : layer.route.path;
@@ -65,7 +65,7 @@ describe("OpenAPI document", () => {
     );
   });
 
-  it("asks for a bearer token everywhere except health and auth", () => {
+  it("asks for a bearer token everywhere except health and sign-in", () => {
     const document = buildOpenApiDocument();
 
     expect(document.components.securitySchemes.bearerAuth).toEqual({
@@ -75,7 +75,9 @@ describe("OpenAPI document", () => {
     });
 
     for (const [path, item] of Object.entries(document.paths)) {
-      const isPublic = path === "/health" || path.startsWith("/auth/");
+      const isPublic =
+        path === "/health" ||
+        (path.startsWith("/auth/") && path !== "/auth/logout");
 
       for (const method of HTTP_METHODS.filter((name) => item[name])) {
         const operation = item[method];
@@ -83,7 +85,7 @@ describe("OpenAPI document", () => {
 
         expect(Boolean(operation.security), label).toBe(!isPublic);
         expect(Boolean(operation.responses[401]), label).toBe(
-          !isPublic || path === "/auth/login",
+          !isPublic || ["/auth/login", "/auth/refresh"].includes(path),
         );
       }
     }

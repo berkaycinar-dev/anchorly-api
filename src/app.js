@@ -35,7 +35,7 @@ export function createApp({ database, logger = console, auth }) {
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
 
   for (const [path, createRouter] of PUBLIC_ROUTERS) {
-    app.use(path, createRouter({ db: database.db, auth }));
+    app.use(path, createRouter({ db: database.db, auth, requireAuth }));
   }
 
   for (const [path, createRouter] of RESOURCE_ROUTERS) {
