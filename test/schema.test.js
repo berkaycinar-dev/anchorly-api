@@ -428,6 +428,31 @@ describe("database schema", () => {
     expect(result.rows[0].indexdef).toContain("(user_id, repeat_group_id)");
   });
 
+  it("gives the development user a password only when asked to", async () => {
+    await seedDevUser(db);
+    const [withoutPassword] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    await seedDevUser(db, { passwordHash: "$argon2id$first" });
+    await seedDevUser(db, { passwordHash: "$argon2id$second" });
+    const [withPassword] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    await seedDevUser(db);
+    const [afterPlainSeed] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    expect(withoutPassword.passwordHash).toBeNull();
+    expect(withPassword.passwordHash).toBe("$argon2id$second");
+    expect(afterPlainSeed.passwordHash).toBe("$argon2id$second");
+  });
+
   it("seeds the development user only once", async () => {
     await seedDevUser(db);
     await seedDevUser(db);

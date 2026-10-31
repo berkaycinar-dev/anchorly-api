@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { userSettings, users } from "../src/db/schema/index.js";
+import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const defaultSettings = {
@@ -21,9 +21,11 @@ const otherUser = {
 describe("/me/settings", () => {
   const testDatabase = useTestDatabase();
   let app;
+  let api;
 
-  beforeEach(() => {
-    app = createApp({ database: testDatabase.database });
+  beforeEach(async () => {
+    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    api = await signedInAs(app, testDatabase.db);
   });
 
   async function readStoredSettings(userId) {
@@ -37,7 +39,7 @@ describe("/me/settings", () => {
 
   describe("GET", () => {
     it("returns the settings of the current user", async () => {
-      const response = await request(app).get("/me/settings");
+      const response = await api.get("/me/settings");
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual(defaultSettings);
@@ -48,7 +50,7 @@ describe("/me/settings", () => {
         .delete(userSettings)
         .where(eq(userSettings.userId, DEV_USER.id));
 
-      const response = await request(app).get("/me/settings");
+      const response = await api.get("/me/settings");
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual(defaultSettings);
@@ -58,20 +60,18 @@ describe("/me/settings", () => {
 
   describe("PATCH", () => {
     it("changes only the settings that are sent", async () => {
-      const response = await request(app)
-        .patch("/me/settings")
-        .send({ theme: "black" });
+      const response = await api.patch("/me/settings").send({ theme: "black" });
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ ...defaultSettings, theme: "black" });
     });
 
     it("keeps the change for later requests", async () => {
-      await request(app)
+      await api
         .patch("/me/settings")
         .send({ language: "en", weekStartDay: "sunday" });
 
-      const response = await request(app).get("/me/settings");
+      const response = await api.get("/me/settings");
 
       expect(response.body).toEqual({
         ...defaultSettings,
@@ -83,7 +83,7 @@ describe("/me/settings", () => {
     it("refreshes the update time of the settings row", async () => {
       const before = await readStoredSettings(DEV_USER.id);
 
-      await request(app).patch("/me/settings").send({ fontFamily: "Manrope" });
+      await api.patch("/me/settings").send({ fontFamily: "Manrope" });
 
       const after = await readStoredSettings(DEV_USER.id);
 
@@ -97,16 +97,14 @@ describe("/me/settings", () => {
         .delete(userSettings)
         .where(eq(userSettings.userId, DEV_USER.id));
 
-      const response = await request(app)
-        .patch("/me/settings")
-        .send({ theme: "green" });
+      const response = await api.patch("/me/settings").send({ theme: "green" });
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual({ ...defaultSettings, theme: "green" });
     });
 
     it("rejects a value outside the allowed list and keeps the old one", async () => {
-      const response = await request(app)
+      const response = await api
         .patch("/me/settings")
         .send({ theme: "orange" });
 
@@ -117,7 +115,7 @@ describe("/me/settings", () => {
     });
 
     it("rejects an unknown setting", async () => {
-      const response = await request(app)
+      const response = await api
         .patch("/me/settings")
         .send({ theme: "black", fontSize: 18 });
 
@@ -127,7 +125,7 @@ describe("/me/settings", () => {
     });
 
     it("rejects an empty change", async () => {
-      const response = await request(app).patch("/me/settings").send({});
+      const response = await api.patch("/me/settings").send({});
 
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe("VALIDATION_ERROR");
@@ -139,7 +137,7 @@ describe("/me/settings", () => {
         .insert(userSettings)
         .values({ userId: otherUser.id, theme: "pink" });
 
-      await request(app).patch("/me/settings").send({ theme: "black" });
+      await api.patch("/me/settings").send({ theme: "black" });
 
       expect((await readStoredSettings(otherUser.id)).theme).toBe("pink");
     });

@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { projects, tasks, users } from "../src/db/schema/index.js";
+import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const taskId = "4cbd7450-6231-43eb-96a2-3be6d2b1d532";
@@ -52,9 +52,11 @@ const fullTask = {
 describe("/tasks", () => {
   const testDatabase = useTestDatabase();
   let app;
+  let api;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database });
+    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    api = await signedInAs(app, testDatabase.db);
     await testDatabase.db.insert(projects).values([
       { userId: DEV_USER.id, id: projectId, name: "Portfolio" },
       {
@@ -67,11 +69,11 @@ describe("/tasks", () => {
   });
 
   function createTask(body) {
-    return request(app).post("/tasks").send(body);
+    return api.post("/tasks").send(body);
   }
 
   function patchTask(id, body) {
-    return request(app).patch(`/tasks/${id}`).send(body);
+    return api.patch(`/tasks/${id}`).send(body);
   }
 
   async function readTaskRow(userId, id) {
@@ -92,7 +94,7 @@ describe("/tasks", () => {
 
   describe("GET /", () => {
     it("returns an empty list when the user has no tasks", async () => {
-      const response = await request(app).get("/tasks");
+      const response = await api.get("/tasks");
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -103,9 +105,9 @@ describe("/tasks", () => {
       await createTask({ id: taskId, title: "First", order: 5 });
       await createTask({ id: secondTaskId, title: "Second", order: 1 });
       await createTask({ id: missingId, title: "Deleted", order: 2 });
-      await request(app).delete(`/tasks/${missingId}`);
+      await api.delete(`/tasks/${missingId}`);
 
-      const response = await request(app).get("/tasks");
+      const response = await api.get("/tasks");
 
       expect(response.body).toEqual([
         { ...defaultTask, id: taskId, title: "First", order: 5 },
@@ -137,7 +139,7 @@ describe("/tasks", () => {
 
       expect(response.status).toBe(201);
       expect(response.body).toEqual(fullTask);
-      expect((await request(app).get("/tasks")).body).toEqual([fullTask]);
+      expect((await api.get("/tasks")).body).toEqual([fullTask]);
     });
 
     it("ignores attachments until they get their own storage", async () => {
@@ -167,7 +169,7 @@ describe("/tasks", () => {
     it("rejects an existing or deleted id with conflicting data", async () => {
       await createTask(fullTask);
       await createTask({ id: secondTaskId, title: "Gone", order: 0 });
-      await request(app).delete(`/tasks/${secondTaskId}`);
+      await api.delete(`/tasks/${secondTaskId}`);
 
       const changedTitle = await createTask({ ...fullTask, title: "Other" });
       const changedStep = await createTask({
@@ -361,7 +363,7 @@ describe("/tasks", () => {
     it("answers 404 for a missing, deleted or foreign task", async () => {
       await addOtherUserTask(missingId);
       await createTask({ id: secondTaskId, title: "Gone", order: 1 });
-      await request(app).delete(`/tasks/${secondTaskId}`);
+      await api.delete(`/tasks/${secondTaskId}`);
 
       for (const id of [
         "aaaaaaaa-0000-4000-8000-000000000000",
@@ -381,10 +383,10 @@ describe("/tasks", () => {
     it("hides the task but keeps its row", async () => {
       await createTask({ id: taskId, title: "Write report", order: 0 });
 
-      const response = await request(app).delete(`/tasks/${taskId}`);
+      const response = await api.delete(`/tasks/${taskId}`);
 
       expect(response.status).toBe(204);
-      expect((await request(app).get("/tasks")).body).toEqual([]);
+      expect((await api.get("/tasks")).body).toEqual([]);
       expect((await readTaskRow(DEV_USER.id, taskId)).deletedAt).toBeInstanceOf(
         Date,
       );
@@ -393,10 +395,10 @@ describe("/tasks", () => {
     it("answers 404 for a missing, deleted or foreign task", async () => {
       await addOtherUserTask(missingId);
       await createTask({ id: taskId, title: "Write report", order: 0 });
-      await request(app).delete(`/tasks/${taskId}`);
+      await api.delete(`/tasks/${taskId}`);
 
       for (const id of [secondTaskId, taskId, missingId]) {
-        const response = await request(app).delete(`/tasks/${id}`);
+        const response = await api.delete(`/tasks/${id}`);
 
         expect(response.status).toBe(404);
       }

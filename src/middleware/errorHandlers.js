@@ -51,6 +51,10 @@ export function createErrorHandler({ logger = console } = {}) {
       body.details = httpError.details;
     }
 
+    if (httpError.headers) {
+      response.set(httpError.headers);
+    }
+
     response.status(httpError.status).json({ error: body });
   };
 }

@@ -1,15 +1,20 @@
 import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { buildOpenApiDocument } from "./docs/openapi.js";
-import { devUser } from "./middleware/devUser.js";
 import {
   createErrorHandler,
   notFoundHandler,
 } from "./middleware/errorHandlers.js";
+import { createRequireAuth } from "./middleware/requireAuth.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
 
 export function createApp({ database, logger = console, auth }) {
+  if (!auth?.jwtSecret) {
+    throw new Error("createApp needs the auth settings (see loadAuthConfig)");
+  }
+
   const app = express();
+  const requireAuth = createRequireAuth({ db: database.db, auth });
   const openApiDocument = buildOpenApiDocument();
 
   app.disable("x-powered-by");
@@ -33,10 +38,8 @@ export function createApp({ database, logger = console, auth }) {
     app.use(path, createRouter({ db: database.db, auth }));
   }
 
-  app.use(devUser);
-
   for (const [path, createRouter] of RESOURCE_ROUTERS) {
-    app.use(path, createRouter({ db: database.db }));
+    app.use(path, requireAuth, createRouter({ db: database.db }));
   }
 
   app.use(notFoundHandler);

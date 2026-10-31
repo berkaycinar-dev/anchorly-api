@@ -32,6 +32,17 @@ export function invalidCredentialsError() {
   );
 }
 
+export function unauthorizedError() {
+  const error = new HttpError(
+    401,
+    "UNAUTHORIZED",
+    "A valid access token is required",
+  );
+
+  error.headers = { "WWW-Authenticate": 'Bearer realm="anchorly-api"' };
+  return error;
+}
+
 export function validationError(details) {
   return new HttpError(
     400,

@@ -1,10 +1,10 @@
 import { and, eq } from "drizzle-orm";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { projects, tasks, users } from "../src/db/schema/index.js";
 import { deleteProject } from "../src/services/projectsService.js";
+import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const portfolioId = "678e4529-fa35-432c-8baa-6a1298ba43f1";
@@ -43,9 +43,11 @@ function failOnTaskUpdate(target) {
 describe("/projects", () => {
   const testDatabase = useTestDatabase();
   let app;
+  let api;
 
-  beforeEach(() => {
-    app = createApp({ database: testDatabase.database });
+  beforeEach(async () => {
+    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    api = await signedInAs(app, testDatabase.db);
   });
 
   function insertProject(values) {
@@ -87,21 +89,17 @@ describe("/projects", () => {
 
   describe("GET", () => {
     it("returns an empty list when the user has no projects", async () => {
-      const response = await request(app).get("/projects");
+      const response = await api.get("/projects");
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
     });
 
     it("lists the projects in the order they were created", async () => {
-      await request(app)
-        .post("/projects")
-        .send({ id: todoAppId, name: "ToDoApp" });
-      await request(app)
-        .post("/projects")
-        .send({ id: portfolioId, name: "Portfolio" });
+      await api.post("/projects").send({ id: todoAppId, name: "ToDoApp" });
+      await api.post("/projects").send({ id: portfolioId, name: "Portfolio" });
 
-      const response = await request(app).get("/projects");
+      const response = await api.get("/projects");
 
       expect(response.body).toEqual([
         { id: todoAppId, name: "ToDoApp" },
@@ -121,7 +119,7 @@ describe("/projects", () => {
         .insert(projects)
         .values({ userId: otherUser.id, id: missingId, name: "Secret" });
 
-      const response = await request(app).get("/projects");
+      const response = await api.get("/projects");
 
       expect(response.body).toEqual([{ id: portfolioId, name: "Portfolio" }]);
     });
@@ -129,7 +127,7 @@ describe("/projects", () => {
 
   describe("POST", () => {
     it("creates a project with the id sent by the client", async () => {
-      const response = await request(app)
+      const response = await api
         .post("/projects")
         .send({ id: portfolioId, name: "  Portfolio  " });
 
@@ -143,8 +141,8 @@ describe("/projects", () => {
     it("answers a repeated identical request with the existing project", async () => {
       const body = { id: portfolioId, name: "Portfolio" };
 
-      await request(app).post("/projects").send(body);
-      const response = await request(app).post("/projects").send(body);
+      await api.post("/projects").send(body);
+      const response = await api.post("/projects").send(body);
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual(body);
@@ -152,11 +150,9 @@ describe("/projects", () => {
     });
 
     it("rejects an existing id with a different name", async () => {
-      await request(app)
-        .post("/projects")
-        .send({ id: portfolioId, name: "Portfolio" });
+      await api.post("/projects").send({ id: portfolioId, name: "Portfolio" });
 
-      const response = await request(app)
+      const response = await api
         .post("/projects")
         .send({ id: portfolioId, name: "Another" });
 
@@ -174,7 +170,7 @@ describe("/projects", () => {
         deletedAt: new Date(),
       });
 
-      const response = await request(app)
+      const response = await api
         .post("/projects")
         .send({ id: portfolioId, name: "Portfolio" });
 
@@ -187,7 +183,7 @@ describe("/projects", () => {
         .insert(projects)
         .values({ userId: otherUser.id, id: portfolioId, name: "Portfolio" });
 
-      const response = await request(app)
+      const response = await api
         .post("/projects")
         .send({ id: portfolioId, name: "Portfolio" });
 
@@ -204,7 +200,7 @@ describe("/projects", () => {
       ];
 
       for (const body of cases) {
-        const response = await request(app).post("/projects").send(body);
+        const response = await api.post("/projects").send(body);
 
         expect(response.status).toBe(400);
       }
@@ -217,7 +213,7 @@ describe("/projects", () => {
     it("renames a project", async () => {
       await insertProject({ id: portfolioId, name: "Portfolio" });
 
-      const response = await request(app)
+      const response = await api
         .patch(`/projects/${portfolioId}`)
         .send({ name: "Portfolio 2026" });
 
@@ -240,7 +236,7 @@ describe("/projects", () => {
         .values({ userId: otherUser.id, id: portfolioId, name: "Secret" });
 
       for (const id of [missingId, todoAppId, portfolioId]) {
-        const response = await request(app)
+        const response = await api
           .patch(`/projects/${id}`)
           .send({ name: "Renamed" });
 
@@ -256,10 +252,10 @@ describe("/projects", () => {
     it("rejects an invalid id or name", async () => {
       await insertProject({ id: portfolioId, name: "Portfolio" });
 
-      const badId = await request(app)
+      const badId = await api
         .patch("/projects/not-a-uuid")
         .send({ name: "Renamed" });
-      const badName = await request(app)
+      const badName = await api
         .patch(`/projects/${portfolioId}`)
         .send({ name: "" });
 
@@ -272,10 +268,10 @@ describe("/projects", () => {
     it("hides the project but keeps its row", async () => {
       await insertProject({ id: portfolioId, name: "Portfolio" });
 
-      const response = await request(app).delete(`/projects/${portfolioId}`);
+      const response = await api.delete(`/projects/${portfolioId}`);
 
       expect(response.status).toBe(204);
-      expect((await request(app).get("/projects")).body).toEqual([]);
+      expect((await api.get("/projects")).body).toEqual([]);
       expect(
         (await readProjectRow(DEV_USER.id, portfolioId)).deletedAt,
       ).toBeInstanceOf(Date);
@@ -301,7 +297,7 @@ describe("/projects", () => {
         position: 0,
       });
 
-      await request(app).delete(`/projects/${portfolioId}`);
+      await api.delete(`/projects/${portfolioId}`);
 
       expect(await readTaskProjectId(DEV_USER.id, inProject)).toBeNull();
       expect(await readTaskProjectId(DEV_USER.id, inOtherProject)).toBe(
@@ -319,10 +315,10 @@ describe("/projects", () => {
         .insert(projects)
         .values({ userId: otherUser.id, id: todoAppId, name: "Secret" });
 
-      await request(app).delete(`/projects/${portfolioId}`);
+      await api.delete(`/projects/${portfolioId}`);
 
       for (const id of [missingId, portfolioId, todoAppId]) {
-        const response = await request(app).delete(`/projects/${id}`);
+        const response = await api.delete(`/projects/${id}`);
 
         expect(response.status).toBe(404);
       }

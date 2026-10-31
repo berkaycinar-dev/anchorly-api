@@ -62,6 +62,37 @@ function operation(tag, summary, details) {
   return { tags: [tag], summary, ...details };
 }
 
+const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
+const PUBLIC_PATH_PATTERN = /^\/(health|auth\/)/;
+
+function requireBearerToken(paths) {
+  return Object.fromEntries(
+    Object.entries(paths).map(([path, item]) => {
+      if (PUBLIC_PATH_PATTERN.test(path)) {
+        return [path, item];
+      }
+
+      const protectedItem = { ...item };
+
+      for (const method of HTTP_METHODS.filter((name) => item[name])) {
+        protectedItem[method] = {
+          ...item[method],
+          security: [{ bearerAuth: [] }],
+          responses: {
+            ...item[method].responses,
+            401: json(
+              "The access token is missing, invalid, expired or revoked (UNAUTHORIZED)",
+              ref("Error"),
+            ),
+          },
+        };
+      }
+
+      return [path, protectedItem];
+    }),
+  );
+}
+
 export function buildOpenApiDocument() {
   return {
     openapi: "3.0.3",
@@ -69,7 +100,7 @@ export function buildOpenApiDocument() {
       title: "Anchorly API",
       version: "0.1.0",
       description:
-        "Tasks, routines, projects and settings for Anchorly. Accounts are created under /auth. Until sign-in is finished, the data endpoints act as the development user.",
+        "Tasks, routines, projects and settings for Anchorly. Create an account or sign in under /auth, then send the access token as `Authorization: Bearer <token>` to every other endpoint except /health.",
     },
     tags: [
       { name: "Health" },
@@ -79,7 +110,7 @@ export function buildOpenApiDocument() {
       { name: "Routines" },
       { name: "Tasks" },
     ],
-    paths: {
+    paths: requireBearerToken({
       "/health": {
         get: operation("Health", "Check the API and the database", {
           responses: {
@@ -258,8 +289,11 @@ export function buildOpenApiDocument() {
           responses: { 204: noContent, 404: errors[404] },
         }),
       },
-    },
+    }),
     components: {
+      securitySchemes: {
+        bearerAuth: { type: "http", scheme: "bearer", bearerFormat: "JWT" },
+      },
       schemas: Object.fromEntries(
         Object.entries(RESPONSE_SCHEMAS).map(([name, schema]) => [
           name,

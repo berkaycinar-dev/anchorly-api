@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { projects, tasks, users } from "../src/db/schema/index.js";
+import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const ids = {
@@ -24,9 +24,11 @@ const otherUser = {
 describe("task ordering and bulk operations", () => {
   const testDatabase = useTestDatabase();
   let app;
+  let api;
 
-  beforeEach(() => {
-    app = createApp({ database: testDatabase.database });
+  beforeEach(async () => {
+    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    api = await signedInAs(app, testDatabase.db);
   });
 
   function insertTasks(rows) {
@@ -50,7 +52,7 @@ describe("task ordering and bulk operations", () => {
   }
 
   function bulk(operations) {
-    return request(app).post("/tasks/bulk").send({ operations });
+    return api.post("/tasks/bulk").send({ operations });
   }
 
   describe("POST /tasks/reorder", () => {
@@ -69,7 +71,7 @@ describe("task ordering and bulk operations", () => {
     });
 
     it("numbers the listed tasks in the given order", async () => {
-      const response = await request(app)
+      const response = await api
         .post("/tasks/reorder")
         .send({ orderedIds: [ids.third, ids.first, ids.second] });
 
@@ -85,7 +87,7 @@ describe("task ordering and bulk operations", () => {
     it("refreshes the update time of the reordered tasks", async () => {
       const before = await readTasks();
 
-      await request(app)
+      await api
         .post("/tasks/reorder")
         .send({ orderedIds: [ids.second, ids.first] });
 
@@ -111,7 +113,7 @@ describe("task ordering and bulk operations", () => {
         .where(eq(tasks.id, ids.second));
 
       for (const extraId of [ids.missing, ids.second, ids.fifth]) {
-        const response = await request(app)
+        const response = await api
           .post("/tasks/reorder")
           .send({ orderedIds: [ids.third, ids.first, extraId] });
 
@@ -133,7 +135,7 @@ describe("task ordering and bulk operations", () => {
       ];
 
       for (const body of cases) {
-        const response = await request(app).post("/tasks/reorder").send(body);
+        const response = await api.post("/tasks/reorder").send(body);
 
         expect(response.status).toBe(400);
       }
@@ -187,7 +189,7 @@ describe("task ordering and bulk operations", () => {
       expect(response.body.results[2].task.repeat).toBe("weekly");
       expect(response.body.results[3].task.id).toBe(ids.fourth);
 
-      const listed = (await request(app).get("/tasks")).body;
+      const listed = (await api.get("/tasks")).body;
 
       expect(listed.map((task) => [task.id, task.date, task.repeat])).toEqual([
         [ids.first, "2026-10-28", "weekly"],

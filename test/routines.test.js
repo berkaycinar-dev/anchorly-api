@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { routineChecks, routines, users } from "../src/db/schema/index.js";
+import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const waterId = "88444dfd-8be1-4578-956f-037a0b71e8b7";
@@ -18,17 +18,19 @@ const otherUser = {
 describe("/routines", () => {
   const testDatabase = useTestDatabase();
   let app;
+  let api;
 
-  beforeEach(() => {
-    app = createApp({ database: testDatabase.database });
+  beforeEach(async () => {
+    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    api = await signedInAs(app, testDatabase.db);
   });
 
   function createRoutine(id, title) {
-    return request(app).post("/routines").send({ id, title });
+    return api.post("/routines").send({ id, title });
   }
 
   function setCheck(id, date, checked) {
-    return request(app).put(`/routines/${id}/checks/${date}`).send({ checked });
+    return api.put(`/routines/${id}/checks/${date}`).send({ checked });
   }
 
   async function addOtherUserRoutine(id, title) {
@@ -63,7 +65,7 @@ describe("/routines", () => {
 
   describe("GET /", () => {
     it("returns an empty list when the user has no routines", async () => {
-      const response = await request(app).get("/routines");
+      const response = await api.get("/routines");
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([]);
@@ -74,7 +76,7 @@ describe("/routines", () => {
       await createRoutine(readId, "Read");
       await createRoutine(exerciseId, "Exercise");
 
-      const response = await request(app).get("/routines");
+      const response = await api.get("/routines");
 
       expect(response.body).toEqual([
         { id: waterId, title: "water" },
@@ -87,9 +89,9 @@ describe("/routines", () => {
       await addOtherUserRoutine(missingId, "Secret");
       await createRoutine(waterId, "water");
       await createRoutine(readId, "Read");
-      await request(app).delete(`/routines/${readId}`);
+      await api.delete(`/routines/${readId}`);
 
-      const response = await request(app).get("/routines");
+      const response = await api.get("/routines");
 
       expect(response.body).toEqual([{ id: waterId, title: "water" }]);
     });
@@ -109,7 +111,7 @@ describe("/routines", () => {
     it("keeps adding after the last position when a routine was deleted", async () => {
       await createRoutine(waterId, "water");
       await createRoutine(readId, "Read");
-      await request(app).delete(`/routines/${readId}`);
+      await api.delete(`/routines/${readId}`);
 
       await createRoutine(exerciseId, "Exercise");
 
@@ -129,7 +131,7 @@ describe("/routines", () => {
     it("rejects an existing or deleted id with conflicting data", async () => {
       await createRoutine(waterId, "water");
       await createRoutine(readId, "Read");
-      await request(app).delete(`/routines/${readId}`);
+      await api.delete(`/routines/${readId}`);
 
       const differentTitle = await createRoutine(waterId, "Drink water");
       const deletedId = await createRoutine(readId, "Read");
@@ -156,7 +158,7 @@ describe("/routines", () => {
       ];
 
       for (const body of cases) {
-        const response = await request(app).post("/routines").send(body);
+        const response = await api.post("/routines").send(body);
 
         expect(response.status).toBe(400);
       }
@@ -169,7 +171,7 @@ describe("/routines", () => {
     it("renames a routine", async () => {
       await createRoutine(waterId, "water");
 
-      const response = await request(app)
+      const response = await api
         .patch(`/routines/${waterId}`)
         .send({ title: "Drink water" });
 
@@ -180,10 +182,10 @@ describe("/routines", () => {
     it("answers 404 for a missing, deleted or foreign routine", async () => {
       await addOtherUserRoutine(exerciseId, "Secret");
       await createRoutine(readId, "Read");
-      await request(app).delete(`/routines/${readId}`);
+      await api.delete(`/routines/${readId}`);
 
       for (const id of [missingId, readId, exerciseId]) {
-        const response = await request(app)
+        const response = await api
           .patch(`/routines/${id}`)
           .send({ title: "Renamed" });
 
@@ -200,7 +202,7 @@ describe("/routines", () => {
     it("hides the routine but keeps its row", async () => {
       await createRoutine(waterId, "water");
 
-      const response = await request(app).delete(`/routines/${waterId}`);
+      const response = await api.delete(`/routines/${waterId}`);
 
       expect(response.status).toBe(204);
       expect(
@@ -211,10 +213,10 @@ describe("/routines", () => {
     it("answers 404 for a missing, deleted or foreign routine", async () => {
       await addOtherUserRoutine(exerciseId, "Secret");
       await createRoutine(waterId, "water");
-      await request(app).delete(`/routines/${waterId}`);
+      await api.delete(`/routines/${waterId}`);
 
       for (const id of [missingId, waterId, exerciseId]) {
-        const response = await request(app).delete(`/routines/${id}`);
+        const response = await api.delete(`/routines/${id}`);
 
         expect(response.status).toBe(404);
       }
@@ -260,7 +262,7 @@ describe("/routines", () => {
     it("answers 404 for a missing, deleted or foreign routine", async () => {
       await addOtherUserRoutine(exerciseId, "Secret");
       await createRoutine(readId, "Read");
-      await request(app).delete(`/routines/${readId}`);
+      await api.delete(`/routines/${readId}`);
 
       for (const id of [missingId, readId, exerciseId]) {
         const response = await setCheck(id, "2026-10-28", true);
@@ -275,17 +277,18 @@ describe("/routines", () => {
       await createRoutine(waterId, "water");
 
       const invalidRequests = [
-        setCheck(waterId, "2026-02-30", true),
-        setCheck(waterId, "2026-1-5", true),
-        setCheck(waterId, "2026-10-28", "true"),
-        request(app).put(`/routines/${waterId}/checks/2026-10-28`).send({}),
-        request(app)
-          .put(`/routines/${waterId}/checks/2026-10-28`)
-          .send({ checked: true, note: "done" }),
+        () => setCheck(waterId, "2026-02-30", true),
+        () => setCheck(waterId, "2026-1-5", true),
+        () => setCheck(waterId, "2026-10-28", "true"),
+        () => api.put(`/routines/${waterId}/checks/2026-10-28`).send({}),
+        () =>
+          api
+            .put(`/routines/${waterId}/checks/2026-10-28`)
+            .send({ checked: true, note: "done" }),
       ];
 
-      for (const pending of invalidRequests) {
-        const response = await pending;
+      for (const send of invalidRequests) {
+        const response = await send();
 
         expect(response.status).toBe(400);
       }
@@ -315,9 +318,9 @@ describe("/routines", () => {
       await setCheck(waterId, "2026-10-26", false);
       await setCheck(exerciseId, "2026-10-27", true);
       await setCheck(readId, "2026-10-27", true);
-      await request(app).delete(`/routines/${readId}`);
+      await api.delete(`/routines/${readId}`);
 
-      const response = await request(app).get("/routines/checks");
+      const response = await api.get("/routines/checks");
 
       expect(response.status).toBe(200);
       expect(response.body).toEqual([
