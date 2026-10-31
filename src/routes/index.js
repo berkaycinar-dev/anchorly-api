@@ -1,3 +1,4 @@
+import { createAccountRouter } from "./account.js";
 import { createAuthRouter } from "./auth.js";
 import { createProjectsRouter } from "./projects.js";
 import { createRoutinesRouter } from "./routines.js";
@@ -11,4 +12,5 @@ export const RESOURCE_ROUTERS = [
   ["/projects", createProjectsRouter],
   ["/routines", createRoutinesRouter],
   ["/tasks", createTasksRouter],
+  ["/me", createAccountRouter],
 ];

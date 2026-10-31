@@ -83,6 +83,22 @@ export function emailNotSentError() {
   );
 }
 
+export function passwordNotSetError() {
+  return new HttpError(
+    400,
+    "PASSWORD_NOT_SET",
+    "This account has no password yet; use forgot password to set one",
+  );
+}
+
+export function invalidCurrentPasswordError() {
+  return new HttpError(
+    400,
+    "INVALID_CURRENT_PASSWORD",
+    "The current password is incorrect",
+  );
+}
+
 export function validationError(details) {
   return new HttpError(
     400,

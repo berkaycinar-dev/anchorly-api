@@ -181,6 +181,11 @@ const ATTEMPTS = [
     status: 400,
   },
   {
+    name: "reach the victim's name through /me",
+    send: (api) => api.patch("/me").send({ displayName: "Mine now" }),
+    status: 200,
+  },
+  {
     name: "change settings",
     send: (api) => api.patch("/me/settings").send({ theme: "black" }),
     status: 200,

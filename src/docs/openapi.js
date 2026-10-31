@@ -16,6 +16,7 @@ import {
   setRoutineCheckSchema,
   updateRoutineSchema,
 } from "../schemas/routines.js";
+import { changePasswordSchema, updateMeSchema } from "../schemas/account.js";
 import { settingsPatchSchema } from "../schemas/settings.js";
 import {
   bulkTasksSchema,
@@ -142,6 +143,7 @@ export function buildOpenApiDocument() {
     tags: [
       { name: "Health" },
       { name: "Auth" },
+      { name: "Account" },
       { name: "Settings" },
       { name: "Projects" },
       { name: "Routines" },
@@ -284,6 +286,32 @@ export function buildOpenApiDocument() {
             204: noContent,
             401: json(
               "The access token is missing, invalid, expired or revoked (UNAUTHORIZED)",
+              ref("Error"),
+            ),
+          },
+        }),
+      },
+      "/me": {
+        get: operation("Account", "Read the signed-in user", {
+          responses: { 200: json("The current user", ref("UserResult")) },
+        }),
+        patch: operation("Account", "Change the display name", {
+          requestBody: body(updateMeSchema),
+          responses: {
+            200: json("The user after the change", ref("UserResult")),
+            400: errors[400],
+          },
+        }),
+      },
+      "/me/password": {
+        post: operation("Account", "Change the password", {
+          description:
+            "Needs the current password. Signs the user out on every other device; this session stays signed in.",
+          requestBody: body(changePasswordSchema),
+          responses: {
+            204: noContent,
+            400: json(
+              "The current password is incorrect (INVALID_CURRENT_PASSWORD), the account has no password yet (PASSWORD_NOT_SET), or the body is invalid",
               ref("Error"),
             ),
           },
