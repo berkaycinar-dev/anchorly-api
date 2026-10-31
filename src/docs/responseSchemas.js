@@ -88,6 +88,18 @@ export const bulkResultResponse = z.strictObject({
   ),
 });
 
+export const userResponse = z.strictObject({
+  id: z.uuid(),
+  email: z.email(),
+  displayName: z.string().nullable(),
+  emailVerifiedAt: z.iso.datetime().nullable(),
+  createdAt: z.iso.datetime(),
+});
+
+export const registerResponse = z.strictObject({
+  user: userResponse,
+});
+
 export const RESPONSE_SCHEMAS = {
   Health: healthResponse,
   Error: errorResponse,
@@ -97,4 +109,6 @@ export const RESPONSE_SCHEMAS = {
   RoutineCheck: routineCheckResponse,
   Task: taskResponse,
   BulkResult: bulkResultResponse,
+  User: userResponse,
+  RegisterResult: registerResponse,
 };

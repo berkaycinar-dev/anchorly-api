@@ -6,7 +6,7 @@ import {
   createErrorHandler,
   notFoundHandler,
 } from "./middleware/errorHandlers.js";
-import { RESOURCE_ROUTERS } from "./routes/index.js";
+import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
 
 export function createApp({ database, logger = console }) {
   const app = express();
@@ -28,6 +28,10 @@ export function createApp({ database, logger = console }) {
     response.json(openApiDocument);
   });
   app.use("/docs", swaggerUi.serve, swaggerUi.setup(openApiDocument));
+
+  for (const [path, createRouter] of PUBLIC_ROUTERS) {
+    app.use(path, createRouter({ db: database.db }));
+  }
 
   app.use(devUser);
 

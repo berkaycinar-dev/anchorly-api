@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { registerSchema } from "../schemas/auth.js";
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -68,10 +69,11 @@ export function buildOpenApiDocument() {
       title: "Anchorly API",
       version: "0.1.0",
       description:
-        "Tasks, routines, projects and settings for Anchorly. Until authentication arrives, every request acts as the development user.",
+        "Tasks, routines, projects and settings for Anchorly. Accounts are created under /auth. Until sign-in is finished, the data endpoints act as the development user.",
     },
     tags: [
       { name: "Health" },
+      { name: "Auth" },
       { name: "Settings" },
       { name: "Projects" },
       { name: "Routines" },
@@ -83,6 +85,19 @@ export function buildOpenApiDocument() {
           responses: {
             200: json("Everything is reachable", ref("Health")),
             503: json("The database is unreachable", ref("Health")),
+          },
+        }),
+      },
+      "/auth/register": {
+        post: operation("Auth", "Create an account with email and password", {
+          requestBody: body(registerSchema),
+          responses: {
+            201: json("Account created", ref("RegisterResult")),
+            400: errors[400],
+            409: json(
+              "An account with this email already exists (EMAIL_TAKEN)",
+              ref("Error"),
+            ),
           },
         }),
       },

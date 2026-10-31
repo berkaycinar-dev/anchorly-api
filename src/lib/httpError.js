@@ -16,6 +16,14 @@ export function conflictError(message) {
   return new HttpError(409, "CONFLICT", message);
 }
 
+export function emailTakenError() {
+  return new HttpError(
+    409,
+    "EMAIL_TAKEN",
+    "An account with this email already exists",
+  );
+}
+
 export function validationError(details) {
   return new HttpError(
     400,
