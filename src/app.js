@@ -19,6 +19,12 @@ export function createApp({
     throw new Error("createApp needs the auth settings (see loadAuthConfig)");
   }
 
+  if (!mailer || !appUrl) {
+    throw new Error(
+      "createApp needs a mailer and the app url (see loadMailConfig)",
+    );
+  }
+
   const app = express();
   const requireAuth = createRequireAuth({ db: database.db, auth });
   const openApiDocument = buildOpenApiDocument();
@@ -43,7 +49,14 @@ export function createApp({
   for (const [path, createRouter] of PUBLIC_ROUTERS) {
     app.use(
       path,
-      createRouter({ db: database.db, auth, requireAuth, mailer, appUrl }),
+      createRouter({
+        db: database.db,
+        auth,
+        requireAuth,
+        mailer,
+        appUrl,
+        logger,
+      }),
     );
   }
 

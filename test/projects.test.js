@@ -1,10 +1,10 @@
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { projects, tasks, users } from "../src/db/schema/index.js";
 import { deleteProject } from "../src/services/projectsService.js";
-import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
+import { signedInAs } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const portfolioId = "678e4529-fa35-432c-8baa-6a1298ba43f1";
@@ -46,7 +46,7 @@ describe("/projects", () => {
   let api;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     api = await signedInAs(app, testDatabase.db);
   });
 

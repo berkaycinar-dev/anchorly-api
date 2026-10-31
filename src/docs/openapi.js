@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { loginSchema, refreshSchema, registerSchema } from "../schemas/auth.js";
+import {
+  loginSchema,
+  refreshSchema,
+  registerSchema,
+  verifyEmailSchema,
+} from "../schemas/auth.js";
 import {
   createProjectSchema,
   updateProjectSchema,
@@ -201,6 +206,42 @@ export function buildOpenApiDocument() {
             },
           },
         ),
+      },
+      "/auth/verify-email": {
+        post: operation(
+          "Auth",
+          "Verify the email address with the token from the email link",
+          {
+            requestBody: body(verifyEmailSchema),
+            responses: {
+              200: json("The email address is verified", ref("UserResult")),
+              400: json(
+                "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), or the body is invalid",
+                ref("Error"),
+              ),
+            },
+          },
+        ),
+      },
+      "/auth/resend-verification": {
+        post: operation("Auth", "Send a new verification email", {
+          security: [{ bearerAuth: [] }],
+          responses: {
+            204: noContent,
+            401: json(
+              "The access token is missing, invalid, expired or revoked (UNAUTHORIZED)",
+              ref("Error"),
+            ),
+            409: json(
+              "The email address is already verified (EMAIL_ALREADY_VERIFIED)",
+              ref("Error"),
+            ),
+            503: json(
+              "The email could not be sent (EMAIL_NOT_SENT)",
+              ref("Error"),
+            ),
+          },
+        }),
       },
       "/auth/logout": {
         post: operation("Auth", "Sign out of the current session", {

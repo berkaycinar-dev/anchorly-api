@@ -1,5 +1,9 @@
 import { Router } from "express";
-import { HttpError, invalidRefreshTokenError } from "../lib/httpError.js";
+import {
+  emailNotSentError,
+  HttpError,
+  invalidRefreshTokenError,
+} from "../lib/httpError.js";
 import {
   clearRefreshCookie,
   isMobileClient,
@@ -8,13 +12,21 @@ import {
 } from "../lib/refreshCookie.js";
 import { describeUserAgent } from "../lib/userAgent.js";
 import { validate } from "../middleware/validate.js";
-import { loginSchema, refreshSchema, registerSchema } from "../schemas/auth.js";
+import {
+  loginSchema,
+  refreshSchema,
+  registerSchema,
+  verifyEmailSchema,
+} from "../schemas/auth.js";
 import {
   loginUser,
+  prepareVerificationResend,
   refreshSession,
   registerUser,
   revokeSession,
+  verifyEmail,
 } from "../services/authService.js";
+import { sendVerificationEmail } from "../services/verificationMail.js";
 
 function withDeviceName(request) {
   const body = request.validated.body;
@@ -40,14 +52,37 @@ function sendSession(response, auth, result, { useCookie, status = 200 }) {
   response.status(status).json(body);
 }
 
-export function createAuthRouter({ db, auth, requireAuth }) {
+export function createAuthRouter({
+  db,
+  auth,
+  requireAuth,
+  mailer,
+  appUrl,
+  logger = console,
+}) {
   const router = Router();
 
   router.post(
     "/register",
     validate({ body: registerSchema }),
     async (request, response) => {
-      const result = await registerUser(db, withDeviceName(request), { auth });
+      const { result, verification } = await registerUser(
+        db,
+        withDeviceName(request),
+        { auth },
+      );
+
+      try {
+        await sendVerificationEmail({
+          mailer,
+          appUrl,
+          user: result.user,
+          language: verification.language,
+          token: verification.token,
+        });
+      } catch (error) {
+        logger.error(error);
+      }
 
       sendSession(response, auth, result, {
         useCookie: !isMobileClient(request),
@@ -91,6 +126,37 @@ export function createAuthRouter({ db, auth, requireAuth }) {
 
         throw error;
       }
+    },
+  );
+
+  router.post(
+    "/verify-email",
+    validate({ body: verifyEmailSchema }),
+    async (request, response) => {
+      const user = await verifyEmail(db, {
+        token: request.validated.body.token,
+      });
+
+      response.json({ user });
+    },
+  );
+
+  router.post(
+    "/resend-verification",
+    requireAuth,
+    async (request, response) => {
+      const { user, language, token } = await prepareVerificationResend(db, {
+        userId: request.user.id,
+      });
+
+      try {
+        await sendVerificationEmail({ mailer, appUrl, user, language, token });
+      } catch (error) {
+        logger.error(error);
+        throw emailNotSentError();
+      }
+
+      response.status(204).end();
     },
   );
 

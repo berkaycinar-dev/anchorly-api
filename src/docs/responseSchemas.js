@@ -96,6 +96,10 @@ export const userResponse = z.strictObject({
   createdAt: z.iso.datetime(),
 });
 
+export const userResultResponse = z.strictObject({
+  user: userResponse,
+});
+
 export const authSessionResponse = z.strictObject({
   user: userResponse,
   accessToken: z.string().describe("JWT for the Authorization header"),
@@ -123,4 +127,5 @@ export const RESPONSE_SCHEMAS = {
   BulkResult: bulkResultResponse,
   User: userResponse,
   AuthSession: authSessionResponse,
+  UserResult: userResultResponse,
 };

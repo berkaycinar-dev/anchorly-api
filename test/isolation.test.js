@@ -1,8 +1,8 @@
 import { asc, eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import {
+  emailTokens,
   projects,
   routineChecks,
   routines,
@@ -11,7 +11,8 @@ import {
   userSettings,
   users,
 } from "../src/db/schema/index.js";
-import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
+import { signedInAs } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const victim = {
@@ -26,6 +27,7 @@ const checkDate = "2026-10-28";
 
 const USER_DATA_TABLES = {
   users,
+  email_tokens: emailTokens,
   user_settings: userSettings,
   projects,
   routines,
@@ -58,6 +60,13 @@ async function seedVictim(db) {
     projectId,
     title: "Victim task",
     position: 0,
+  });
+  await db.insert(emailTokens).values({
+    userId: victim.id,
+    purpose: "verify_email",
+    tokenHash: "victim-email-token-hash",
+    email: victim.email,
+    expiresAt: new Date("2026-11-30T00:00:00Z"),
   });
   await db.insert(sessions).values({
     userId: victim.id,
@@ -196,7 +205,7 @@ describe("user isolation", () => {
   let api;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     api = await signedInAs(app, testDatabase.db);
     await seedVictim(testDatabase.db);
   });

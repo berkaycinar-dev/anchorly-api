@@ -1,9 +1,9 @@
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { sessions } from "../src/db/schema/index.js";
 import { hashToken } from "../src/lib/tokens.js";
 import { TEST_AUTH } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const email = "ali@example.com";
@@ -44,7 +44,7 @@ describe("refresh token cookie", () => {
   let db;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     db = testDatabase.db;
 
     await request(app)
@@ -209,7 +209,7 @@ describe("refresh token cookie", () => {
   });
 
   it("uses the configured cookie path and secure flag", async () => {
-    const proxiedApp = createApp({
+    const proxiedApp = createTestApp({
       database: testDatabase.database,
       auth: { ...TEST_AUTH, cookiePath: "/api/auth", cookieSecure: false },
     });

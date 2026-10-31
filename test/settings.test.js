@@ -1,9 +1,9 @@
 import { eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { userSettings, users } from "../src/db/schema/index.js";
-import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
+import { signedInAs } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const defaultSettings = {
@@ -24,7 +24,7 @@ describe("/me/settings", () => {
   let api;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     api = await signedInAs(app, testDatabase.db);
   });
 

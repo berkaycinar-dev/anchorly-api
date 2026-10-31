@@ -1,8 +1,12 @@
 import { and, eq, isNull, or } from "drizzle-orm";
+import { DEFAULT_SETTINGS } from "../constants/settings.js";
+import { VERIFY_EMAIL_TTL_HOURS } from "../constants/emailTokens.js";
 import { sessions, userSettings, users } from "../db/schema/index.js";
 import {
+  emailAlreadyVerifiedError,
   emailTakenError,
   invalidCredentialsError,
+  invalidEmailTokenError,
   invalidRefreshTokenError,
 } from "../lib/httpError.js";
 import { hashPassword, verifyPassword } from "../lib/password.js";
@@ -11,6 +15,7 @@ import {
   generateRefreshToken,
   hashToken,
 } from "../lib/tokens.js";
+import { consumeEmailToken, issueEmailToken } from "./emailTokenService.js";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
@@ -82,7 +87,7 @@ export async function createSession(
 
 export async function registerUser(
   db,
-  { email, password, displayName, deviceName },
+  { email, password, displayName, deviceName, language },
   { auth },
 ) {
   const passwordHash = await hashPassword(password);
@@ -98,7 +103,13 @@ export async function registerUser(
       throw emailTakenError();
     }
 
-    await tx.insert(userSettings).values({ userId: user.id });
+    const [settings] = await tx
+      .insert(userSettings)
+      .values({
+        userId: user.id,
+        language: language ?? DEFAULT_SETTINGS.language,
+      })
+      .returning();
 
     const tokens = await createSession(tx, {
       userId: user.id,
@@ -106,7 +117,17 @@ export async function registerUser(
       auth,
     });
 
-    return { user: toPublicUser(user), ...tokens };
+    const verificationToken = await issueEmailToken(tx, {
+      userId: user.id,
+      purpose: "verify_email",
+      email: user.email,
+      ttlHours: VERIFY_EMAIL_TTL_HOURS,
+    });
+
+    return {
+      result: { user: toPublicUser(user), ...tokens },
+      verification: { token: verificationToken, language: settings.language },
+    };
   });
 }
 
@@ -229,4 +250,62 @@ export async function revokeSession(
         isNull(sessions.revokedAt),
       ),
     );
+}
+
+export async function verifyEmail(db, { token, now = new Date() }) {
+  return db.transaction(async (tx) => {
+    const issued = await consumeEmailToken(tx, {
+      token,
+      purpose: "verify_email",
+      now,
+    });
+
+    if (!issued) {
+      throw invalidEmailTokenError();
+    }
+
+    const [user] = await tx
+      .select()
+      .from(users)
+      .where(eq(users.id, issued.userId));
+
+    if (!user || user.email !== issued.email) {
+      throw invalidEmailTokenError();
+    }
+
+    const [updated] = await tx
+      .update(users)
+      .set({ emailVerifiedAt: user.emailVerifiedAt ?? now })
+      .where(eq(users.id, user.id))
+      .returning();
+
+    return toPublicUser(updated);
+  });
+}
+
+export async function prepareVerificationResend(db, { userId }) {
+  return db.transaction(async (tx) => {
+    const [row] = await tx
+      .select({ user: users, language: userSettings.language })
+      .from(users)
+      .leftJoin(userSettings, eq(userSettings.userId, users.id))
+      .where(eq(users.id, userId));
+
+    if (row.user.emailVerifiedAt) {
+      throw emailAlreadyVerifiedError();
+    }
+
+    const token = await issueEmailToken(tx, {
+      userId,
+      purpose: "verify_email",
+      email: row.user.email,
+      ttlHours: VERIFY_EMAIL_TTL_HOURS,
+    });
+
+    return {
+      user: row.user,
+      language: row.language ?? DEFAULT_SETTINGS.language,
+      token,
+    };
+  });
 }

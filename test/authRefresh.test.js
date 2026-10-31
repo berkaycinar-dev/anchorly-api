@@ -1,11 +1,11 @@
 import { eq } from "drizzle-orm";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { sessions, users } from "../src/db/schema/index.js";
 import { hashToken, verifyAccessToken } from "../src/lib/tokens.js";
 import { refreshSession } from "../src/services/authService.js";
 import { TEST_AUTH } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const email = "ali@example.com";
@@ -19,7 +19,7 @@ describe("auth sessions", () => {
   let signIn;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     db = testDatabase.db;
 
     await request(app).post("/auth/register").send({ email, password });

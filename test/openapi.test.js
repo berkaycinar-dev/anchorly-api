@@ -1,7 +1,6 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { buildOpenApiDocument } from "../src/docs/openapi.js";
 import {
   authSessionResponse,
@@ -15,7 +14,8 @@ import {
   taskResponse,
 } from "../src/docs/responseSchemas.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "../src/routes/index.js";
-import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
+import { signedInAs } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
@@ -77,7 +77,8 @@ describe("OpenAPI document", () => {
     for (const [path, item] of Object.entries(document.paths)) {
       const isPublic =
         path === "/health" ||
-        (path.startsWith("/auth/") && path !== "/auth/logout");
+        (path.startsWith("/auth/") &&
+          !["/auth/logout", "/auth/resend-verification"].includes(path));
 
       for (const method of HTTP_METHODS.filter((name) => item[name])) {
         const operation = item[method];
@@ -103,10 +104,7 @@ describe("OpenAPI document", () => {
   });
 
   it("is served as JSON and as an interactive page", async () => {
-    const app = createApp({
-      database: { ping: () => Promise.resolve() },
-      auth: TEST_AUTH,
-    });
+    const app = createTestApp({ database: { ping: () => Promise.resolve() } });
 
     const json = await request(app).get("/openapi.json");
     const page = await request(app).get("/docs/");
@@ -130,7 +128,7 @@ describe("documented response shapes", () => {
   let api;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     api = await signedInAs(app, testDatabase.db);
   });
 

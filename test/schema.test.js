@@ -2,6 +2,7 @@ import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEV_USER } from "../src/constants/devUser.js";
 import {
+  emailTokens,
   projects,
   routineChecks,
   routines,
@@ -45,6 +46,7 @@ describe("database schema", () => {
     );
 
     expect(result.rows.map((row) => row.table_name)).toEqual([
+      "email_tokens",
       "projects",
       "routine_checks",
       "routines",
@@ -268,6 +270,40 @@ describe("database schema", () => {
       }),
       FOREIGN_KEY_VIOLATION,
     );
+  });
+
+  it("keeps email tokens unique, typed and tied to an existing user", async () => {
+    const values = {
+      userId: alice.id,
+      purpose: "verify_email",
+      tokenHash: "email-token-hash",
+      email: alice.email,
+      expiresAt: new Date("2026-11-02T00:00:00Z"),
+    };
+
+    await db.insert(emailTokens).values(values);
+
+    await expectDatabaseError(
+      db.insert(emailTokens).values({ ...values, userId: bob.id }),
+      UNIQUE_VIOLATION,
+    );
+    await expectDatabaseError(
+      db
+        .insert(emailTokens)
+        .values({ ...values, tokenHash: "other", purpose: "login" }),
+      CHECK_VIOLATION,
+    );
+    await expectDatabaseError(
+      db.insert(emailTokens).values({
+        ...values,
+        tokenHash: "orphan",
+        userId: "33333333-3333-4333-8333-333333333333",
+      }),
+      FOREIGN_KEY_VIOLATION,
+    );
+
+    await db.delete(users).where(eq(users.id, alice.id));
+    expect(await db.select().from(emailTokens)).toEqual([]);
   });
 
   it("indexes sessions by user", async () => {

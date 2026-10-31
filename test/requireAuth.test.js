@@ -8,6 +8,7 @@ import { buildOpenApiDocument } from "../src/docs/openapi.js";
 import { createAccessToken } from "../src/lib/tokens.js";
 import { createSession } from "../src/services/authService.js";
 import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
@@ -35,7 +36,7 @@ describe("requireAuth", () => {
   let db;
 
   beforeEach(() => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     db = testDatabase.db;
   });
 

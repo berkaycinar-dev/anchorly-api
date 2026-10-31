@@ -1,4 +1,5 @@
 import { z } from "zod";
+import { LANGUAGES } from "../constants/settings.js";
 
 export const emailSchema = z
   .string()
@@ -18,6 +19,14 @@ export const registerSchema = z.strictObject({
   password: passwordSchema,
   displayName: displayNameSchema.optional(),
   deviceName: deviceNameSchema.optional(),
+  language: z
+    .enum(LANGUAGES)
+    .optional()
+    .describe("Interface language; also used for account emails"),
+});
+
+export const verifyEmailSchema = z.strictObject({
+  token: z.string().min(1).max(512),
 });
 
 export const refreshSchema = z.strictObject({

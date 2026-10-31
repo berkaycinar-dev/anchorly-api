@@ -1,9 +1,9 @@
 import { and, eq } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { routineChecks, routines, users } from "../src/db/schema/index.js";
-import { signedInAs, TEST_AUTH } from "./helpers/auth.js";
+import { signedInAs } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const waterId = "88444dfd-8be1-4578-956f-037a0b71e8b7";
@@ -21,7 +21,7 @@ describe("/routines", () => {
   let api;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     api = await signedInAs(app, testDatabase.db);
   });
 

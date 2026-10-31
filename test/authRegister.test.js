@@ -1,12 +1,12 @@
 import { eq } from "drizzle-orm";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { sessions, userSettings, users } from "../src/db/schema/index.js";
 import { verifyPassword } from "../src/lib/password.js";
 import { hashToken, verifyAccessToken } from "../src/lib/tokens.js";
 import { registerUser } from "../src/services/authService.js";
 import { TEST_AUTH } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const password = "correct horse battery";
@@ -42,7 +42,7 @@ describe("POST /auth/register", () => {
   let db;
 
   beforeEach(() => {
-    app = createApp({ database: testDatabase.database, auth: TEST_AUTH });
+    app = createTestApp({ database: testDatabase.database });
     db = testDatabase.db;
   });
 

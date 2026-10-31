@@ -1,17 +1,16 @@
 import request from "supertest";
 import { describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
-import { TEST_AUTH } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 
 const reachableDatabase = { ping: () => Promise.resolve() };
 
-function createTestApp() {
-  return createApp({ database: reachableDatabase, auth: TEST_AUTH });
+function createHttpApp() {
+  return createTestApp({ database: reachableDatabase });
 }
 
 describe("http basics", () => {
   it("answers an unknown route with a JSON 404 error", async () => {
-    const response = await request(createTestApp()).get("/does-not-exist");
+    const response = await request(createHttpApp()).get("/does-not-exist");
 
     expect(response.status).toBe(404);
     expect(response.headers["content-type"]).toMatch(/application\/json/);
@@ -24,7 +23,7 @@ describe("http basics", () => {
   });
 
   it("rejects a body that is not valid JSON", async () => {
-    const response = await request(createTestApp())
+    const response = await request(createHttpApp())
       .post("/does-not-exist")
       .set("Content-Type", "application/json")
       .send('{"title": ');
@@ -34,7 +33,7 @@ describe("http basics", () => {
   });
 
   it("rejects a body larger than 100 kilobytes", async () => {
-    const response = await request(createTestApp())
+    const response = await request(createHttpApp())
       .post("/does-not-exist")
       .set("Content-Type", "application/json")
       .send(JSON.stringify({ data: "x".repeat(110 * 1024) }));

@@ -51,6 +51,38 @@ export function invalidRefreshTokenError() {
   );
 }
 
+export function invalidEmailTokenError() {
+  return new HttpError(
+    400,
+    "INVALID_EMAIL_TOKEN",
+    "The link is invalid, expired or already used",
+  );
+}
+
+export function emailAlreadyVerifiedError() {
+  return new HttpError(
+    409,
+    "EMAIL_ALREADY_VERIFIED",
+    "This email address is already verified",
+  );
+}
+
+export function emailNotVerifiedError() {
+  return new HttpError(
+    403,
+    "EMAIL_NOT_VERIFIED",
+    "Verify your email address to use this feature",
+  );
+}
+
+export function emailNotSentError() {
+  return new HttpError(
+    503,
+    "EMAIL_NOT_SENT",
+    "The email could not be sent, please try again later",
+  );
+}
+
 export function validationError(details) {
   return new HttpError(
     400,
