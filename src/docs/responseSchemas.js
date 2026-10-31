@@ -100,6 +100,15 @@ export const userResultResponse = z.strictObject({
   user: userResponse,
 });
 
+export const sessionResponse = z.strictObject({
+  id: z.uuid(),
+  deviceName: z.string().nullable(),
+  createdAt: z.iso.datetime(),
+  lastUsedAt: z.iso.datetime(),
+  expiresAt: z.iso.datetime(),
+  current: z.boolean().describe("True for the session that sent the request"),
+});
+
 export const authSessionResponse = z.strictObject({
   user: userResponse,
   accessToken: z.string().describe("JWT for the Authorization header"),
@@ -116,6 +125,18 @@ export const authSessionResponse = z.strictObject({
   refreshTokenExpiresAt: z.iso.datetime(),
 });
 
+export const exportResponse = z.strictObject({
+  format: z.literal("anchorly-export"),
+  version: z.literal(1),
+  exportedAt: z.iso.datetime(),
+  user: userResponse,
+  settings: settingsResponse,
+  projects: z.array(projectResponse),
+  routines: z.array(routineResponse),
+  routineChecks: z.array(routineCheckResponse),
+  tasks: z.array(taskResponse),
+});
+
 export const RESPONSE_SCHEMAS = {
   Health: healthResponse,
   Error: errorResponse,
@@ -128,4 +149,6 @@ export const RESPONSE_SCHEMAS = {
   User: userResponse,
   AuthSession: authSessionResponse,
   UserResult: userResultResponse,
+  Session: sessionResponse,
+  Export: exportResponse,
 };

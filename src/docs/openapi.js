@@ -333,6 +333,49 @@ export function buildOpenApiDocument() {
           },
         }),
       },
+      "/me/sessions": {
+        get: operation("Account", "List the active sessions", {
+          description:
+            "Only sessions that are neither signed out nor expired. The session that sent the request comes first and has current: true.",
+          responses: {
+            200: json("Active sessions", {
+              type: "array",
+              items: ref("Session"),
+            }),
+          },
+        }),
+        delete: operation("Account", "Sign out every other device", {
+          responses: { 204: noContent },
+        }),
+      },
+      "/me/sessions/{id}": {
+        parameters: [idParameter],
+        delete: operation("Account", "Sign out one session", {
+          description:
+            "Signing out the current session works like logout and clears the refresh cookie.",
+          responses: {
+            204: noContent,
+            400: errors[400],
+            404: json(
+              "No active session with this id for the current user",
+              ref("Error"),
+            ),
+          },
+        }),
+      },
+      "/me/export": {
+        get: operation("Account", "Download all of the user's data as JSON", {
+          description:
+            "Needs a verified email address. Sent as a file download (Content-Disposition: attachment). Never contains password or token hashes.",
+          responses: {
+            200: json("The export file", ref("Export")),
+            403: json(
+              "The email address is not verified yet (EMAIL_NOT_VERIFIED)",
+              ref("Error"),
+            ),
+          },
+        }),
+      },
       "/me/settings": {
         get: operation("Settings", "Read the current user's settings", {
           responses: { 200: json("Settings", ref("Settings")) },

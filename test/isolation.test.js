@@ -24,6 +24,7 @@ const routineId = "88444dfd-8be1-4578-956f-037a0b71e8b7";
 const taskId = "4cbd7450-6231-43eb-96a2-3be6d2b1d532";
 const ownTaskId = "0ddd41bd-4d45-4fa4-8c46-5cf610c1f634";
 const checkDate = "2026-10-28";
+const victimSessionId = "5f1c4d7a-6b8e-4c9f-8a01-b3c4d5e6f708";
 
 const USER_DATA_TABLES = {
   users,
@@ -69,6 +70,7 @@ async function seedVictim(db) {
     expiresAt: new Date("2026-11-30T00:00:00Z"),
   });
   await db.insert(sessions).values({
+    id: victimSessionId,
     userId: victim.id,
     tokenHash: "victim-token-hash",
     deviceName: "Victim phone",
@@ -191,6 +193,16 @@ const ATTEMPTS = [
     status: 200,
   },
   {
+    name: "sign out the victim's session",
+    send: (api) => api.delete(`/me/sessions/${victimSessionId}`),
+    status: 404,
+  },
+  {
+    name: "sign out every other session",
+    send: (api) => api.delete("/me/sessions"),
+    status: 204,
+  },
+  {
     name: "create a project with the victim's project id",
     send: (api) =>
       api.post("/projects").send({ id: projectId, name: "Victim project" }),
@@ -237,6 +249,33 @@ describe("user isolation", () => {
       expect(routineList.body).toEqual([]);
       expect(checkList.body).toEqual([]);
       expect(taskList.body).toEqual([]);
+    });
+
+    it("lists only the current user's sessions", async () => {
+      const response = await api.get("/me/sessions");
+
+      expect(response.body.map((session) => session.deviceName)).toEqual([
+        "Test runner",
+      ]);
+    });
+
+    it("exports only the current user's data", async () => {
+      await testDatabase.db
+        .update(users)
+        .set({ emailVerifiedAt: new Date() })
+        .where(eq(users.id, DEV_USER.id));
+
+      const response = await api.get("/me/export");
+
+      expect(response.status).toBe(200);
+      expect(response.body.user.email).toBe(DEV_USER.email);
+      expect(response.body.settings.theme).toBe("gray");
+      expect(response.body.projects).toEqual([]);
+      expect(response.body.routines).toEqual([]);
+      expect(response.body.routineChecks).toEqual([]);
+      expect(response.body.tasks).toEqual([]);
+      expect(response.text).not.toContain(victim.id);
+      expect(response.text).not.toContain("Victim");
     });
 
     it("returns the current user's own settings", async () => {

@@ -5,6 +5,8 @@ export const updateMeSchema = z.strictObject({
   displayName: displayNameSchema.nullable(),
 });
 
+export const sessionIdParams = z.object({ id: z.uuid() });
+
 export const deleteAccountSchema = z.strictObject({
   password: z.string().min(1).max(128),
 });
