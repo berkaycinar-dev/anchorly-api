@@ -17,6 +17,7 @@ export function createApp({
   mailer,
   appUrl,
   rateLimits = RATE_LIMITS,
+  trustProxy = 0,
   runInBackground = (task) => {
     task().catch((error) => logger.error(error));
   },
@@ -37,6 +38,7 @@ export function createApp({
   const openApiDocument = buildOpenApiDocument();
 
   app.disable("x-powered-by");
+  app.set("trust proxy", trustProxy > 0 ? trustProxy : false);
   app.use(express.json({ limit: "100kb" }));
 
   app.get("/health", async (request, response) => {

@@ -4,6 +4,15 @@ import { z } from "zod";
 const environmentSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
   DATABASE_URL: z.url({ protocol: /^postgres(ql)?$/ }),
+  TRUST_PROXY: z
+    .string()
+    .trim()
+    .regex(
+      /^[0-5]?$/,
+      "TRUST_PROXY must be empty or the number of proxies in front of the API (0-5)",
+    )
+    .default("")
+    .transform((value) => Number(value)),
 });
 
 export function loadConfig(environment = process.env) {
@@ -18,6 +27,7 @@ export function loadConfig(environment = process.env) {
   return {
     port: result.data.PORT,
     databaseUrl: result.data.DATABASE_URL,
+    trustProxy: result.data.TRUST_PROXY,
   };
 }
 

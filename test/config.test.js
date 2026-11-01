@@ -10,7 +10,43 @@ describe("loadConfig", () => {
     expect(loadConfig(validEnvironment)).toEqual({
       port: 3000,
       databaseUrl: validEnvironment.DATABASE_URL,
+      trustProxy: 0,
     });
+  });
+
+  it("reads the number of trusted proxies", () => {
+    expect(
+      loadConfig({ ...validEnvironment, TRUST_PROXY: "1" }).trustProxy,
+    ).toBe(1);
+    expect(
+      loadConfig({ ...validEnvironment, TRUST_PROXY: " 2 " }).trustProxy,
+    ).toBe(2);
+  });
+
+  it("turns proxy trust off for the empty line from the example file", () => {
+    expect(
+      loadConfig({ ...validEnvironment, TRUST_PROXY: "" }).trustProxy,
+    ).toBe(0);
+    expect(
+      loadConfig({ ...validEnvironment, TRUST_PROXY: "0" }).trustProxy,
+    ).toBe(0);
+  });
+
+  it("rejects proxy settings that would trust any client", () => {
+    for (const value of [
+      "true",
+      "loopback",
+      "10.0.0.1",
+      "-1",
+      "1.5",
+      "6",
+      "10",
+    ]) {
+      expect(
+        () => loadConfig({ ...validEnvironment, TRUST_PROXY: value }),
+        value,
+      ).toThrow(/TRUST_PROXY/);
+    }
   });
 
   it("converts the port from text to a number", () => {

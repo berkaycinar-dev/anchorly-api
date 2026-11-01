@@ -21,9 +21,11 @@ const server = createApp({
   auth,
   mailer,
   appUrl: mail.appUrl,
+  trustProxy: config.trustProxy,
 }).listen(config.port, () => {
   console.log(`anchorly-api listening on http://localhost:${config.port}`);
   console.log(`Emails: ${mail.provider}, links point to ${mail.appUrl}`);
+  console.log(`Trusted proxies: ${config.trustProxy}`);
 });
 
 function shutdown() {
