@@ -21,7 +21,7 @@ import {
   revokeOwnSession,
 } from "../services/sessionsService.js";
 
-export function createAccountRouter({ db, auth }) {
+export function createAccountRouter({ db, auth, limiters }) {
   const router = Router();
   const requireVerifiedEmail = createRequireVerifiedEmail({ db });
 
@@ -41,6 +41,7 @@ export function createAccountRouter({ db, auth }) {
 
   router.delete(
     "/",
+    limiters.passwordCheck,
     validate({ body: deleteAccountSchema }),
     async (request, response) => {
       await deleteAccount(db, {
@@ -55,6 +56,7 @@ export function createAccountRouter({ db, auth }) {
 
   router.post(
     "/password",
+    limiters.passwordCheck,
     validate({ body: changePasswordSchema }),
     async (request, response) => {
       await changePassword(db, {

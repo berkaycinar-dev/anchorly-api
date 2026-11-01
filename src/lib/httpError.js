@@ -99,6 +99,14 @@ export function invalidCurrentPasswordError() {
   );
 }
 
+export function tooManyRequestsError() {
+  return new HttpError(
+    429,
+    "TOO_MANY_REQUESTS",
+    "Too many requests, try again later",
+  );
+}
+
 export function validationError(details) {
   return new HttpError(
     400,

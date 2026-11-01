@@ -35,6 +35,7 @@ export function createTestApp({
   auth = TEST_AUTH,
   mailer = createMemoryMailer(),
   logger = { error() {}, info() {} },
+  rateLimits = {},
   ...overrides
 }) {
   const backgroundTasks = [];
@@ -44,6 +45,7 @@ export function createTestApp({
     mailer,
     appUrl: TEST_APP_URL,
     logger,
+    rateLimits,
     runInBackground: (task) => {
       backgroundTasks.push(task().catch((error) => logger.error(error)));
     },

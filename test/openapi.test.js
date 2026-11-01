@@ -2,6 +2,7 @@ import SwaggerParser from "@apidevtools/swagger-parser";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
 import { buildOpenApiDocument } from "../src/docs/openapi.js";
+import { createRateLimiters } from "../src/middleware/rateLimits.js";
 import {
   authSessionResponse,
   bulkResultResponse,
@@ -27,7 +28,11 @@ function listImplementedOperations() {
     ...PUBLIC_ROUTERS,
     ...RESOURCE_ROUTERS,
   ]) {
-    const router = createRouter({ db: null, requireAuth: () => {} });
+    const router = createRouter({
+      db: null,
+      requireAuth: () => {},
+      limiters: createRateLimiters(),
+    });
 
     for (const layer of router.stack.filter((item) => item.route)) {
       const routePath = layer.route.path === "/" ? "" : layer.route.path;

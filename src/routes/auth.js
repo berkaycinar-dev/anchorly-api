@@ -66,12 +66,14 @@ export function createAuthRouter({
   mailer,
   appUrl,
   logger = console,
+  limiters,
   runInBackground,
 }) {
   const router = Router();
 
   router.post(
     "/register",
+    limiters.register,
     validate({ body: registerSchema }),
     async (request, response) => {
       const { result, verification } = await registerUser(
@@ -101,9 +103,13 @@ export function createAuthRouter({
 
   router.post(
     "/login",
+    limiters.loginByIp,
     validate({ body: loginSchema }),
+    limiters.loginByEmail,
     async (request, response) => {
       const result = await loginUser(db, withDeviceName(request), { auth });
+
+      await limiters.loginByEmail.resetKey(request.validated.body.email);
 
       sendSession(response, auth, result, {
         useCookie: !isMobileClient(request),
@@ -113,6 +119,7 @@ export function createAuthRouter({
 
   router.post(
     "/refresh",
+    limiters.refresh,
     validate({ body: refreshSchema }),
     async (request, response) => {
       const bodyToken = request.validated.body.refreshToken;
@@ -139,6 +146,7 @@ export function createAuthRouter({
 
   router.post(
     "/verify-email",
+    limiters.verifyEmail,
     validate({ body: verifyEmailSchema }),
     async (request, response) => {
       const user = await verifyEmail(db, {
@@ -152,6 +160,7 @@ export function createAuthRouter({
   router.post(
     "/resend-verification",
     requireAuth,
+    limiters.resendVerification,
     async (request, response) => {
       const { user, language, token } = await prepareVerificationResend(db, {
         userId: request.user.id,
@@ -170,11 +179,17 @@ export function createAuthRouter({
 
   router.post(
     "/forgot-password",
+    limiters.forgotPasswordByIp,
     validate({ body: forgotPasswordSchema }),
+    limiters.forgotPasswordByEmail,
     async (request, response) => {
       const { email } = request.validated.body;
 
       response.status(202).end();
+
+      if (request.emailLimitReached) {
+        return;
+      }
 
       runInBackground(async () => {
         const reset = await preparePasswordReset(db, { email });
@@ -188,6 +203,7 @@ export function createAuthRouter({
 
   router.post(
     "/reset-password",
+    limiters.resetPassword,
     validate({ body: resetPasswordSchema }),
     async (request, response) => {
       await resetPassword(db, request.validated.body);

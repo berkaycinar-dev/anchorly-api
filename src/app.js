@@ -1,10 +1,12 @@
 import express from "express";
 import swaggerUi from "swagger-ui-express";
+import { RATE_LIMITS } from "./constants/rateLimits.js";
 import { buildOpenApiDocument } from "./docs/openapi.js";
 import {
   createErrorHandler,
   notFoundHandler,
 } from "./middleware/errorHandlers.js";
+import { createRateLimiters } from "./middleware/rateLimits.js";
 import { createRequireAuth } from "./middleware/requireAuth.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
 
@@ -14,6 +16,7 @@ export function createApp({
   auth,
   mailer,
   appUrl,
+  rateLimits = RATE_LIMITS,
   runInBackground = (task) => {
     task().catch((error) => logger.error(error));
   },
@@ -30,6 +33,7 @@ export function createApp({
 
   const app = express();
   const requireAuth = createRequireAuth({ db: database.db, auth });
+  const limiters = createRateLimiters(rateLimits);
   const openApiDocument = buildOpenApiDocument();
 
   app.disable("x-powered-by");
@@ -59,13 +63,18 @@ export function createApp({
         mailer,
         appUrl,
         logger,
+        limiters,
         runInBackground,
       }),
     );
   }
 
   for (const [path, createRouter] of RESOURCE_ROUTERS) {
-    app.use(path, requireAuth, createRouter({ db: database.db, auth }));
+    app.use(
+      path,
+      requireAuth,
+      createRouter({ db: database.db, auth, limiters }),
+    );
   }
 
   app.use(notFoundHandler);
