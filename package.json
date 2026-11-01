@@ -14,6 +14,7 @@
     "db:generate": "drizzle-kit generate",
     "db:migrate": "node scripts/migrate.js",
     "db:seed": "node scripts/seed.js",
+    "smoke": "node scripts/smoke.js",
     "lint": "eslint .",
     "format": "prettier --write .",
     "format:check": "prettier --check .",

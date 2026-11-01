@@ -15,6 +15,7 @@ const database = createDatabase(loadConfig().databaseUrl);
 try {
   await seedDevUser(database.db, {
     passwordHash: await hashPassword(DEV_USER_PASSWORD),
+    emailVerifiedAt: new Date(),
   });
   console.log(
     `Development user ready: ${DEV_USER.email} / ${DEV_USER_PASSWORD}`,

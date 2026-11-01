@@ -97,6 +97,14 @@ describe("OpenAPI document", () => {
     }
   });
 
+  it("shows the real range of the access token lifetime", () => {
+    const property =
+      buildOpenApiDocument().components.schemas.AuthSession.properties
+        .accessTokenExpiresIn;
+
+    expect(property).toMatchObject({ minimum: 60, maximum: 3600 });
+  });
+
   it("takes request bodies from the validation schemas", () => {
     const document = buildOpenApiDocument();
     const taskBody =

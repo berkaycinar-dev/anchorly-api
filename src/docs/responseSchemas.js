@@ -115,6 +115,8 @@ export const authSessionResponse = z.strictObject({
   accessTokenExpiresIn: z
     .number()
     .int()
+    .min(60)
+    .max(3600)
     .describe("Seconds until the access token expires"),
   refreshToken: z
     .string()

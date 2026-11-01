@@ -489,6 +489,34 @@ describe("database schema", () => {
     expect(afterPlainSeed.passwordHash).toBe("$argon2id$second");
   });
 
+  it("marks the development user verified only when asked to, keeping the first time", async () => {
+    const first = new Date("2026-01-01T00:00:00Z");
+
+    await seedDevUser(db);
+    const [plain] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    await seedDevUser(db, {
+      passwordHash: "$argon2id$first",
+      emailVerifiedAt: first,
+    });
+    await seedDevUser(db, {
+      passwordHash: "$argon2id$second",
+      emailVerifiedAt: new Date("2026-06-01T00:00:00Z"),
+    });
+    await seedDevUser(db, { passwordHash: "$argon2id$third" });
+    const [verified] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    expect(plain.emailVerifiedAt).toBeNull();
+    expect(verified.emailVerifiedAt).toEqual(first);
+    expect(verified.passwordHash).toBe("$argon2id$third");
+  });
+
   it("seeds the development user only once", async () => {
     await seedDevUser(db);
     await seedDevUser(db);
