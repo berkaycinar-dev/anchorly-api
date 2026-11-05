@@ -1,5 +1,5 @@
 import { sql } from "drizzle-orm";
-import { check, pgTable, text, uuid } from "drizzle-orm/pg-core";
+import { check, jsonb, pgTable, text, uuid } from "drizzle-orm/pg-core";
 import {
   DEFAULT_SETTINGS,
   FONT_FAMILIES,
@@ -20,6 +20,9 @@ export const userSettings = pgTable(
     language: text().notNull().default(DEFAULT_SETTINGS.language),
     fontFamily: text().notNull().default(DEFAULT_SETTINGS.fontFamily),
     weekStartDay: text().notNull().default(DEFAULT_SETTINGS.weekStartDay),
+    dashboardLayout: jsonb()
+      .notNull()
+      .default(DEFAULT_SETTINGS.dashboardLayout),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
   },
@@ -39,6 +42,10 @@ export const userSettings = pgTable(
     check(
       "user_settings_week_start_day_check",
       sql`${table.weekStartDay} in (${sqlList(WEEK_START_DAYS)})`,
+    ),
+    check(
+      "user_settings_dashboard_layout_array_check",
+      sql`jsonb_typeof(${table.dashboardLayout}) = 'array'`,
     ),
   ],
 );

@@ -1,0 +1,2 @@
+ALTER TABLE "user_settings" ADD COLUMN "dashboard_layout" jsonb DEFAULT '[{"id":"todayRing","size":"small"},{"id":"weeklyRoutine","size":"small"},{"id":"upcoming","size":"wide"}]'::jsonb NOT NULL;--> statement-breakpoint
+ALTER TABLE "user_settings" ADD CONSTRAINT "user_settings_dashboard_layout_array_check" CHECK (jsonb_typeof("user_settings"."dashboard_layout") = 'array');

@@ -11,6 +11,11 @@ const defaultSettings = {
   language: "tr",
   fontFamily: "Inter",
   weekStartDay: "monday",
+  dashboardLayout: [
+    { id: "todayRing", size: "small" },
+    { id: "weeklyRoutine", size: "small" },
+    { id: "upcoming", size: "wide" },
+  ],
 };
 
 const otherUser = {
@@ -126,6 +131,80 @@ describe("/me/settings", () => {
 
     it("rejects an empty change", async () => {
       const response = await api.patch("/me/settings").send({});
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("replaces the whole dashboard layout and keeps its order", async () => {
+      const dashboardLayout = [
+        { id: "streaks", size: "wide" },
+        { id: "todayRing", size: "small" },
+      ];
+
+      const response = await api
+        .patch("/me/settings")
+        .send({ dashboardLayout });
+
+      expect(response.status).toBe(200);
+      expect(response.body.dashboardLayout).toEqual(dashboardLayout);
+
+      const stored = await api.get("/me/settings");
+
+      expect(stored.body.dashboardLayout).toEqual(dashboardLayout);
+    });
+
+    it("accepts an empty dashboard layout", async () => {
+      const response = await api
+        .patch("/me/settings")
+        .send({ dashboardLayout: [] });
+
+      expect(response.status).toBe(200);
+      expect(response.body.dashboardLayout).toEqual([]);
+    });
+
+    it("rejects a dashboard card with a size outside the allowed list", async () => {
+      const response = await api
+        .patch("/me/settings")
+        .send({ dashboardLayout: [{ id: "streaks", size: "huge" }] });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect((await readStoredSettings(DEV_USER.id)).dashboardLayout).toEqual(
+        defaultSettings.dashboardLayout,
+      );
+    });
+
+    it("rejects the same dashboard card twice", async () => {
+      const response = await api.patch("/me/settings").send({
+        dashboardLayout: [
+          { id: "streaks", size: "small" },
+          { id: "streaks", size: "wide" },
+        ],
+      });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("rejects a dashboard layout with too many cards", async () => {
+      const dashboardLayout = Array.from({ length: 21 }, (_, index) => ({
+        id: `card${index}`,
+        size: "small",
+      }));
+
+      const response = await api
+        .patch("/me/settings")
+        .send({ dashboardLayout });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("rejects a dashboard layout that is not a list", async () => {
+      const response = await api
+        .patch("/me/settings")
+        .send({ dashboardLayout: { id: "streaks", size: "small" } });
 
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe("VALIDATION_ERROR");

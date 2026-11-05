@@ -1,10 +1,26 @@
 import { z } from "zod";
 import {
+  DASHBOARD_CARD_ID_MAX_LENGTH,
+  DASHBOARD_CARD_SIZES,
+  DASHBOARD_LAYOUT_MAX_CARDS,
   FONT_FAMILIES,
   LANGUAGES,
   THEMES,
   WEEK_START_DAYS,
 } from "../constants/settings.js";
+
+const dashboardCardSchema = z.strictObject({
+  id: z.string().min(1).max(DASHBOARD_CARD_ID_MAX_LENGTH),
+  size: z.enum(DASHBOARD_CARD_SIZES),
+});
+
+const dashboardLayoutSchema = z
+  .array(dashboardCardSchema)
+  .max(DASHBOARD_LAYOUT_MAX_CARDS)
+  .refine(
+    (layout) => new Set(layout.map((card) => card.id)).size === layout.length,
+    { message: "Dashboard cards must not repeat" },
+  );
 
 export const settingsPatchSchema = z
   .strictObject({
@@ -12,6 +28,7 @@ export const settingsPatchSchema = z
     language: z.enum(LANGUAGES).optional(),
     fontFamily: z.enum(FONT_FAMILIES).optional(),
     weekStartDay: z.enum(WEEK_START_DAYS).optional(),
+    dashboardLayout: dashboardLayoutSchema.optional(),
   })
   .refine((patch) => Object.keys(patch).length > 0, {
     message: "At least one setting must be provided",
