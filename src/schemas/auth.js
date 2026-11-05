@@ -1,0 +1,54 @@
+import { z } from "zod";
+import { LANGUAGES } from "../constants/settings.js";
+
+export const emailSchema = z
+  .string()
+  .trim()
+  .toLowerCase()
+  .max(254)
+  .check(z.email());
+
+export const passwordSchema = z.string().min(8).max(128);
+
+export const displayNameSchema = z.string().trim().min(1).max(100);
+
+export const deviceNameSchema = z.string().trim().min(1).max(100);
+
+export const registerSchema = z.strictObject({
+  email: emailSchema,
+  password: passwordSchema,
+  displayName: displayNameSchema.optional(),
+  deviceName: deviceNameSchema.optional(),
+  language: z
+    .enum(LANGUAGES)
+    .optional()
+    .describe("Interface language; also used for account emails"),
+});
+
+export const verifyEmailSchema = z.strictObject({
+  token: z.string().min(1).max(512),
+});
+
+export const forgotPasswordSchema = z.strictObject({
+  email: emailSchema,
+});
+
+export const resetPasswordSchema = z.strictObject({
+  token: z.string().min(1).max(512),
+  password: passwordSchema,
+});
+
+export const refreshSchema = z.strictObject({
+  refreshToken: z
+    .string()
+    .min(1)
+    .max(512)
+    .optional()
+    .describe("Mobile clients only; web clients send the refresh cookie"),
+});
+
+export const loginSchema = z.strictObject({
+  email: emailSchema,
+  password: z.string().min(1).max(128),
+  deviceName: deviceNameSchema.optional(),
+});

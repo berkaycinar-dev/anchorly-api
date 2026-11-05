@@ -1,6 +1,6 @@
 import request from "supertest";
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
+import { createTestApp } from "./helpers/app.js";
 import { createTestDatabase } from "./helpers/database.js";
 
 describe("GET /health", () => {
@@ -15,7 +15,7 @@ describe("GET /health", () => {
   });
 
   it("reports the api and the database as ok", async () => {
-    const response = await request(createApp({ database })).get("/health");
+    const response = await request(createTestApp({ database })).get("/health");
 
     expect(response.status).toBe(200);
     expect(response.headers["content-type"]).toMatch(/application\/json/);
@@ -23,7 +23,7 @@ describe("GET /health", () => {
   });
 
   it("does not reveal the server framework", async () => {
-    const response = await request(createApp({ database })).get("/health");
+    const response = await request(createTestApp({ database })).get("/health");
 
     expect(response.headers["x-powered-by"]).toBeUndefined();
   });
@@ -34,7 +34,7 @@ describe("GET /health", () => {
     };
 
     const response = await request(
-      createApp({ database: unreachableDatabase }),
+      createTestApp({ database: unreachableDatabase }),
     ).get("/health");
 
     expect(response.status).toBe(503);

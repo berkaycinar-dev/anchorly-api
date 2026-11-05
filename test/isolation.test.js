@@ -1,16 +1,18 @@
 import { asc, eq, sql } from "drizzle-orm";
-import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { DEV_USER } from "../src/constants/devUser.js";
 import {
+  emailTokens,
   projects,
   routineChecks,
   routines,
+  sessions,
   tasks,
   userSettings,
   users,
 } from "../src/db/schema/index.js";
+import { signedInAs } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const victim = {
@@ -22,13 +24,16 @@ const routineId = "88444dfd-8be1-4578-956f-037a0b71e8b7";
 const taskId = "4cbd7450-6231-43eb-96a2-3be6d2b1d532";
 const ownTaskId = "0ddd41bd-4d45-4fa4-8c46-5cf610c1f634";
 const checkDate = "2026-10-28";
+const victimSessionId = "5f1c4d7a-6b8e-4c9f-8a01-b3c4d5e6f708";
 
 const USER_DATA_TABLES = {
   users,
+  email_tokens: emailTokens,
   user_settings: userSettings,
   projects,
   routines,
   routine_checks: routineChecks,
+  sessions,
   tasks,
 };
 
@@ -57,6 +62,20 @@ async function seedVictim(db) {
     title: "Victim task",
     position: 0,
   });
+  await db.insert(emailTokens).values({
+    userId: victim.id,
+    purpose: "verify_email",
+    tokenHash: "victim-email-token-hash",
+    email: victim.email,
+    expiresAt: new Date("2026-11-30T00:00:00Z"),
+  });
+  await db.insert(sessions).values({
+    id: victimSessionId,
+    userId: victim.id,
+    tokenHash: "victim-token-hash",
+    deviceName: "Victim phone",
+    expiresAt: new Date("2026-11-30T00:00:00Z"),
+  });
 }
 
 async function snapshotVictim(db) {
@@ -78,117 +97,121 @@ async function snapshotVictim(db) {
 const ATTEMPTS = [
   {
     name: "rename the victim's project",
-    send: (app) =>
-      request(app).patch(`/projects/${projectId}`).send({ name: "Mine now" }),
+    send: (api) =>
+      api.patch(`/projects/${projectId}`).send({ name: "Mine now" }),
     status: 404,
   },
   {
     name: "delete the victim's project",
-    send: (app) => request(app).delete(`/projects/${projectId}`),
+    send: (api) => api.delete(`/projects/${projectId}`),
     status: 404,
   },
   {
     name: "rename the victim's routine",
-    send: (app) =>
-      request(app).patch(`/routines/${routineId}`).send({ title: "Mine now" }),
+    send: (api) =>
+      api.patch(`/routines/${routineId}`).send({ title: "Mine now" }),
     status: 404,
   },
   {
     name: "delete the victim's routine",
-    send: (app) => request(app).delete(`/routines/${routineId}`),
+    send: (api) => api.delete(`/routines/${routineId}`),
     status: 404,
   },
   {
     name: "uncheck the victim's routine",
-    send: (app) =>
-      request(app)
+    send: (api) =>
+      api
         .put(`/routines/${routineId}/checks/${checkDate}`)
         .send({ checked: false }),
     status: 404,
   },
   {
     name: "edit the victim's task",
-    send: (app) =>
-      request(app)
+    send: (api) =>
+      api
         .patch(`/tasks/${taskId}`)
         .send({ title: "Mine now", projectId: null }),
     status: 404,
   },
   {
     name: "delete the victim's task",
-    send: (app) => request(app).delete(`/tasks/${taskId}`),
+    send: (api) => api.delete(`/tasks/${taskId}`),
     status: 404,
   },
   {
     name: "reorder the victim's task",
-    send: (app) =>
-      request(app)
-        .post("/tasks/reorder")
-        .send({ orderedIds: [taskId] }),
+    send: (api) => api.post("/tasks/reorder").send({ orderedIds: [taskId] }),
     status: 404,
   },
   {
     name: "delete the victim's task in a bulk request",
-    send: (app) =>
-      request(app)
+    send: (api) =>
+      api
         .post("/tasks/bulk")
         .send({ operations: [{ type: "delete", id: taskId }] }),
     status: 404,
   },
   {
     name: "update the victim's task in a bulk request",
-    send: (app) =>
-      request(app)
-        .post("/tasks/bulk")
-        .send({
-          operations: [
-            {
-              type: "update",
-              id: taskId,
-              patch: { completed: true, completedAt: checkDate },
-            },
-          ],
-        }),
+    send: (api) =>
+      api.post("/tasks/bulk").send({
+        operations: [
+          {
+            type: "update",
+            id: taskId,
+            patch: { completed: true, completedAt: checkDate },
+          },
+        ],
+      }),
     status: 404,
   },
   {
     name: "create a task inside the victim's project",
-    send: (app) =>
-      request(app)
+    send: (api) =>
+      api
         .post("/tasks")
         .send({ id: ownTaskId, title: "Sneaky", order: 0, projectId }),
     status: 400,
   },
   {
     name: "move an own task into the victim's project",
-    send: async (app) => {
-      await request(app)
-        .post("/tasks")
-        .send({ id: ownTaskId, title: "Own", order: 0 });
+    send: async (api) => {
+      await api.post("/tasks").send({ id: ownTaskId, title: "Own", order: 0 });
 
-      return request(app).patch(`/tasks/${ownTaskId}`).send({ projectId });
+      return api.patch(`/tasks/${ownTaskId}`).send({ projectId });
     },
     status: 400,
   },
   {
-    name: "change settings",
-    send: (app) => request(app).patch("/me/settings").send({ theme: "black" }),
+    name: "reach the victim's name through /me",
+    send: (api) => api.patch("/me").send({ displayName: "Mine now" }),
     status: 200,
   },
   {
+    name: "change settings",
+    send: (api) => api.patch("/me/settings").send({ theme: "black" }),
+    status: 200,
+  },
+  {
+    name: "sign out the victim's session",
+    send: (api) => api.delete(`/me/sessions/${victimSessionId}`),
+    status: 404,
+  },
+  {
+    name: "sign out every other session",
+    send: (api) => api.delete("/me/sessions"),
+    status: 204,
+  },
+  {
     name: "create a project with the victim's project id",
-    send: (app) =>
-      request(app)
-        .post("/projects")
-        .send({ id: projectId, name: "Victim project" }),
+    send: (api) =>
+      api.post("/projects").send({ id: projectId, name: "Victim project" }),
     status: 201,
   },
   {
     name: "create a task with the victim's task id",
-    send: (app) =>
-      request(app)
-        .post("/tasks")
-        .send({ id: taskId, title: "Victim task", order: 0 }),
+    send: (api) =>
+      api.post("/tasks").send({ id: taskId, title: "Victim task", order: 0 }),
     status: 201,
   },
 ];
@@ -196,9 +219,11 @@ const ATTEMPTS = [
 describe("user isolation", () => {
   const testDatabase = useTestDatabase();
   let app;
+  let api;
 
   beforeEach(async () => {
-    app = createApp({ database: testDatabase.database });
+    app = createTestApp({ database: testDatabase.database });
+    api = await signedInAs(app, testDatabase.db);
     await seedVictim(testDatabase.db);
   });
 
@@ -216,7 +241,7 @@ describe("user isolation", () => {
     it("lists only the current user's projects, routines, checks and tasks", async () => {
       const [projectList, routineList, checkList, taskList] = await Promise.all(
         ["/projects", "/routines", "/routines/checks", "/tasks"].map((path) =>
-          request(app).get(path),
+          api.get(path),
         ),
       );
 
@@ -226,8 +251,35 @@ describe("user isolation", () => {
       expect(taskList.body).toEqual([]);
     });
 
+    it("lists only the current user's sessions", async () => {
+      const response = await api.get("/me/sessions");
+
+      expect(response.body.map((session) => session.deviceName)).toEqual([
+        "Test runner",
+      ]);
+    });
+
+    it("exports only the current user's data", async () => {
+      await testDatabase.db
+        .update(users)
+        .set({ emailVerifiedAt: new Date() })
+        .where(eq(users.id, DEV_USER.id));
+
+      const response = await api.get("/me/export");
+
+      expect(response.status).toBe(200);
+      expect(response.body.user.email).toBe(DEV_USER.email);
+      expect(response.body.settings.theme).toBe("gray");
+      expect(response.body.projects).toEqual([]);
+      expect(response.body.routines).toEqual([]);
+      expect(response.body.routineChecks).toEqual([]);
+      expect(response.body.tasks).toEqual([]);
+      expect(response.text).not.toContain(victim.id);
+      expect(response.text).not.toContain("Victim");
+    });
+
     it("returns the current user's own settings", async () => {
-      const response = await request(app).get("/me/settings");
+      const response = await api.get("/me/settings");
 
       expect(response.body.theme).toBe("gray");
     });
@@ -238,7 +290,7 @@ describe("user isolation", () => {
       it(`cannot ${attempt.name}`, async () => {
         const before = await snapshotVictim(testDatabase.db);
 
-        const response = await attempt.send(app);
+        const response = await attempt.send(api);
 
         expect(response.status).toBe(attempt.status);
         expect(await snapshotVictim(testDatabase.db)).toEqual(before);
@@ -247,9 +299,7 @@ describe("user isolation", () => {
   });
 
   it("keeps the development user's own data separate", async () => {
-    await request(app)
-      .post("/projects")
-      .send({ id: projectId, name: "Victim project" });
+    await api.post("/projects").send({ id: projectId, name: "Victim project" });
 
     const ownRows = await testDatabase.db
       .select()
@@ -257,7 +307,7 @@ describe("user isolation", () => {
       .where(eq(projects.userId, DEV_USER.id));
 
     expect(ownRows).toHaveLength(1);
-    expect((await request(app).get("/projects")).body).toEqual([
+    expect((await api.get("/projects")).body).toEqual([
       { id: projectId, name: "Victim project" },
     ]);
   });

@@ -2,9 +2,11 @@ import { eq, sql } from "drizzle-orm";
 import { beforeEach, describe, expect, it } from "vitest";
 import { DEV_USER } from "../src/constants/devUser.js";
 import {
+  emailTokens,
   projects,
   routineChecks,
   routines,
+  sessions,
   tasks,
   userSettings,
   users,
@@ -44,9 +46,11 @@ describe("database schema", () => {
     );
 
     expect(result.rows.map((row) => row.table_name)).toEqual([
+      "email_tokens",
       "projects",
       "routine_checks",
       "routines",
+      "sessions",
       "tasks",
       "user_settings",
       "users",
@@ -58,6 +62,23 @@ describe("database schema", () => {
       db.insert(users).values({ email: alice.email }),
       UNIQUE_VIOLATION,
     );
+  });
+
+  it("rejects an email that contains uppercase letters", async () => {
+    await expectDatabaseError(
+      db.insert(users).values({ email: "Carol@Example.com" }),
+      CHECK_VIOLATION,
+    );
+  });
+
+  it("creates a user without a password, display name or verified email", async () => {
+    const [user] = await db.select().from(users).where(eq(users.id, alice.id));
+
+    expect(user).toMatchObject({
+      passwordHash: null,
+      emailVerifiedAt: null,
+      displayName: null,
+    });
   });
 
   it("fills user settings with the default values", async () => {
@@ -156,6 +177,11 @@ describe("database schema", () => {
 
   it("removes all data of a user when the user row is deleted", async () => {
     await db.insert(userSettings).values({ userId: alice.id });
+    await db.insert(sessions).values({
+      userId: alice.id,
+      tokenHash: "alice-token-hash",
+      expiresAt: new Date("2026-11-30T00:00:00Z"),
+    });
     await db
       .insert(projects)
       .values({ userId: alice.id, id: sharedProjectId, name: "Portfolio" });
@@ -176,6 +202,117 @@ describe("database schema", () => {
     expect(await db.select().from(projects)).toEqual([]);
     expect(await db.select().from(routines)).toEqual([]);
     expect(await db.select().from(tasks)).toEqual([]);
+    expect(await db.select().from(sessions)).toEqual([]);
+  });
+
+  it("fills a new session with the default values", async () => {
+    const [session] = await db
+      .insert(sessions)
+      .values({
+        userId: alice.id,
+        tokenHash: "alice-token-hash",
+        expiresAt: new Date("2026-11-30T00:00:00Z"),
+      })
+      .returning();
+
+    expect(session.id).toMatch(/^[0-9a-f-]{36}$/);
+    expect(session.lastUsedAt).toBeInstanceOf(Date);
+    expect(session).toMatchObject({
+      previousTokenHash: null,
+      rotatedAt: null,
+      deviceName: null,
+      revokedAt: null,
+    });
+  });
+
+  it("rejects a session without an expiry time", async () => {
+    await expectDatabaseError(
+      db
+        .insert(sessions)
+        .values({ userId: alice.id, tokenHash: "alice-token-hash" }),
+      "23502",
+    );
+  });
+
+  it("rejects a token hash that another session already uses", async () => {
+    const expiresAt = new Date("2026-11-30T00:00:00Z");
+
+    await db.insert(sessions).values({
+      userId: alice.id,
+      tokenHash: "shared-hash",
+      previousTokenHash: "shared-previous-hash",
+      expiresAt,
+    });
+
+    await expectDatabaseError(
+      db
+        .insert(sessions)
+        .values({ userId: bob.id, tokenHash: "shared-hash", expiresAt }),
+      UNIQUE_VIOLATION,
+    );
+    await expectDatabaseError(
+      db.insert(sessions).values({
+        userId: bob.id,
+        tokenHash: "another-hash",
+        previousTokenHash: "shared-previous-hash",
+        expiresAt,
+      }),
+      UNIQUE_VIOLATION,
+    );
+  });
+
+  it("rejects a session for a user that does not exist", async () => {
+    await expectDatabaseError(
+      db.insert(sessions).values({
+        userId: "33333333-3333-4333-8333-333333333333",
+        tokenHash: "orphan-hash",
+        expiresAt: new Date("2026-11-30T00:00:00Z"),
+      }),
+      FOREIGN_KEY_VIOLATION,
+    );
+  });
+
+  it("keeps email tokens unique, typed and tied to an existing user", async () => {
+    const values = {
+      userId: alice.id,
+      purpose: "verify_email",
+      tokenHash: "email-token-hash",
+      email: alice.email,
+      expiresAt: new Date("2026-11-02T00:00:00Z"),
+    };
+
+    await db.insert(emailTokens).values(values);
+
+    await expectDatabaseError(
+      db.insert(emailTokens).values({ ...values, userId: bob.id }),
+      UNIQUE_VIOLATION,
+    );
+    await expectDatabaseError(
+      db
+        .insert(emailTokens)
+        .values({ ...values, tokenHash: "other", purpose: "login" }),
+      CHECK_VIOLATION,
+    );
+    await expectDatabaseError(
+      db.insert(emailTokens).values({
+        ...values,
+        tokenHash: "orphan",
+        userId: "33333333-3333-4333-8333-333333333333",
+      }),
+      FOREIGN_KEY_VIOLATION,
+    );
+
+    await db.delete(users).where(eq(users.id, alice.id));
+    expect(await db.select().from(emailTokens)).toEqual([]);
+  });
+
+  it("indexes sessions by user", async () => {
+    const result = await db.execute(
+      sql`select indexdef from pg_indexes where indexname = 'sessions_user_id_idx'`,
+    );
+
+    expect(result.rows).toHaveLength(1);
+    expect(result.rows[0].indexdef).toContain("(user_id)");
   });
 
   it("fills a new task with the default values", async () => {
@@ -325,6 +462,59 @@ describe("database schema", () => {
 
     expect(result.rows).toHaveLength(1);
     expect(result.rows[0].indexdef).toContain("(user_id, repeat_group_id)");
+  });
+
+  it("gives the development user a password only when asked to", async () => {
+    await seedDevUser(db);
+    const [withoutPassword] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    await seedDevUser(db, { passwordHash: "$argon2id$first" });
+    await seedDevUser(db, { passwordHash: "$argon2id$second" });
+    const [withPassword] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    await seedDevUser(db);
+    const [afterPlainSeed] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    expect(withoutPassword.passwordHash).toBeNull();
+    expect(withPassword.passwordHash).toBe("$argon2id$second");
+    expect(afterPlainSeed.passwordHash).toBe("$argon2id$second");
+  });
+
+  it("marks the development user verified only when asked to, keeping the first time", async () => {
+    const first = new Date("2026-01-01T00:00:00Z");
+
+    await seedDevUser(db);
+    const [plain] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    await seedDevUser(db, {
+      passwordHash: "$argon2id$first",
+      emailVerifiedAt: first,
+    });
+    await seedDevUser(db, {
+      passwordHash: "$argon2id$second",
+      emailVerifiedAt: new Date("2026-06-01T00:00:00Z"),
+    });
+    await seedDevUser(db, { passwordHash: "$argon2id$third" });
+    const [verified] = await db
+      .select()
+      .from(users)
+      .where(eq(users.id, DEV_USER.id));
+
+    expect(plain.emailVerifiedAt).toBeNull();
+    expect(verified.emailVerifiedAt).toEqual(first);
+    expect(verified.passwordHash).toBe("$argon2id$third");
   });
 
   it("seeds the development user only once", async () => {

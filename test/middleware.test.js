@@ -4,7 +4,6 @@ import { describe, expect, it, vi } from "vitest";
 import { z } from "zod";
 import { DEV_USER } from "../src/constants/devUser.js";
 import { HttpError, notFoundError } from "../src/lib/httpError.js";
-import { devUser } from "../src/middleware/devUser.js";
 import {
   createErrorHandler,
   notFoundHandler,
@@ -75,21 +74,6 @@ describe("validate", () => {
     await request(app).post("/items/not-a-uuid").send({ name: "Portfolio" });
 
     expect(route).not.toHaveBeenCalled();
-  });
-});
-
-describe("devUser", () => {
-  it("handles every request as the development user", async () => {
-    const app = createTestApp((testApp) => {
-      testApp.use(devUser);
-      testApp.get("/me", (request, response) => {
-        response.json(request.user);
-      });
-    });
-
-    const response = await request(app).get("/me");
-
-    expect(response.body).toEqual({ id: DEV_USER.id });
   });
 });
 

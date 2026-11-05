@@ -1,9 +1,10 @@
 import SwaggerParser from "@apidevtools/swagger-parser";
 import request from "supertest";
 import { beforeEach, describe, expect, it } from "vitest";
-import { createApp } from "../src/app.js";
 import { buildOpenApiDocument } from "../src/docs/openapi.js";
+import { createRateLimiters } from "../src/middleware/rateLimits.js";
 import {
+  authSessionResponse,
   bulkResultResponse,
   errorResponse,
   healthResponse,
@@ -13,7 +14,9 @@ import {
   settingsResponse,
   taskResponse,
 } from "../src/docs/responseSchemas.js";
-import { RESOURCE_ROUTERS } from "../src/routes/index.js";
+import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "../src/routes/index.js";
+import { signedInAs } from "./helpers/auth.js";
+import { createTestApp } from "./helpers/app.js";
 import { useTestDatabase } from "./helpers/database.js";
 
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
@@ -21,8 +24,15 @@ const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
 function listImplementedOperations() {
   const operations = ["GET /health"];
 
-  for (const [mountPath, createRouter] of RESOURCE_ROUTERS) {
-    const router = createRouter({ db: null });
+  for (const [mountPath, createRouter] of [
+    ...PUBLIC_ROUTERS,
+    ...RESOURCE_ROUTERS,
+  ]) {
+    const router = createRouter({
+      db: null,
+      requireAuth: () => {},
+      limiters: createRateLimiters(),
+    });
 
     for (const layer of router.stack.filter((item) => item.route)) {
       const routePath = layer.route.path === "/" ? "" : layer.route.path;
@@ -60,6 +70,41 @@ describe("OpenAPI document", () => {
     );
   });
 
+  it("asks for a bearer token everywhere except health and sign-in", () => {
+    const document = buildOpenApiDocument();
+
+    expect(document.components.securitySchemes.bearerAuth).toEqual({
+      type: "http",
+      scheme: "bearer",
+      bearerFormat: "JWT",
+    });
+
+    for (const [path, item] of Object.entries(document.paths)) {
+      const isPublic =
+        path === "/health" ||
+        (path.startsWith("/auth/") &&
+          !["/auth/logout", "/auth/resend-verification"].includes(path));
+
+      for (const method of HTTP_METHODS.filter((name) => item[name])) {
+        const operation = item[method];
+        const label = `${method.toUpperCase()} ${path}`;
+
+        expect(Boolean(operation.security), label).toBe(!isPublic);
+        expect(Boolean(operation.responses[401]), label).toBe(
+          !isPublic || ["/auth/login", "/auth/refresh"].includes(path),
+        );
+      }
+    }
+  });
+
+  it("shows the real range of the access token lifetime", () => {
+    const property =
+      buildOpenApiDocument().components.schemas.AuthSession.properties
+        .accessTokenExpiresIn;
+
+    expect(property).toMatchObject({ minimum: 60, maximum: 3600 });
+  });
+
   it("takes request bodies from the validation schemas", () => {
     const document = buildOpenApiDocument();
     const taskBody =
@@ -72,7 +117,7 @@ describe("OpenAPI document", () => {
   });
 
   it("is served as JSON and as an interactive page", async () => {
-    const app = createApp({ database: { ping: () => Promise.resolve() } });
+    const app = createTestApp({ database: { ping: () => Promise.resolve() } });
 
     const json = await request(app).get("/openapi.json");
     const page = await request(app).get("/docs/");
@@ -93,48 +138,60 @@ describe("documented response shapes", () => {
   const routineId = "88444dfd-8be1-4578-956f-037a0b71e8b7";
   const taskId = "4cbd7450-6231-43eb-96a2-3be6d2b1d532";
 
-  beforeEach(() => {
-    app = createApp({ database: testDatabase.database });
+  let api;
+
+  beforeEach(async () => {
+    app = createTestApp({ database: testDatabase.database });
+    api = await signedInAs(app, testDatabase.db);
   });
 
   it("match what the API really sends", async () => {
     const health = await request(app).get("/health");
-    const settings = await request(app).get("/me/settings");
-    const project = await request(app)
+    const settings = await api.get("/me/settings");
+    const project = await api
       .post("/projects")
       .send({ id: projectId, name: "Portfolio" });
-    const routine = await request(app)
+    const routine = await api
       .post("/routines")
       .send({ id: routineId, title: "Read" });
-    const check = await request(app)
+    const check = await api
       .put(`/routines/${routineId}/checks/2026-10-28`)
       .send({ checked: true });
-    const checks = await request(app).get("/routines/checks");
-    const task = await request(app)
-      .post("/tasks")
-      .send({
-        id: taskId,
-        title: "Write report",
-        order: 0,
-        projectId,
-        steps: [
-          {
-            id: "a3f1c2d4-0000-4000-8000-000000000001",
-            text: "Draft",
-            done: false,
-          },
-        ],
-      });
-    const bulk = await request(app)
-      .post("/tasks/bulk")
-      .send({
-        operations: [
-          { type: "update", id: taskId, patch: { title: "Final report" } },
-          { type: "delete", id: taskId },
-        ],
-      });
-    const notFound = await request(app).delete(`/tasks/${taskId}`);
-    const invalid = await request(app).post("/projects").send({ name: "" });
+    const checks = await api.get("/routines/checks");
+    const task = await api.post("/tasks").send({
+      id: taskId,
+      title: "Write report",
+      order: 0,
+      projectId,
+      steps: [
+        {
+          id: "a3f1c2d4-0000-4000-8000-000000000001",
+          text: "Draft",
+          done: false,
+        },
+      ],
+    });
+    const bulk = await api.post("/tasks/bulk").send({
+      operations: [
+        { type: "update", id: taskId, patch: { title: "Final report" } },
+        { type: "delete", id: taskId },
+      ],
+    });
+    const registration = await request(app)
+      .post("/auth/register")
+      .send({ email: "shape@example.com", password: "long enough" });
+    const emailTaken = await request(app)
+      .post("/auth/register")
+      .send({ email: "shape@example.com", password: "long enough" });
+    const login = await request(app)
+      .post("/auth/login")
+      .send({ email: "shape@example.com", password: "long enough" });
+    const wrongPassword = await request(app)
+      .post("/auth/login")
+      .send({ email: "shape@example.com", password: "wrong password" });
+    const notFound = await api.delete(`/tasks/${taskId}`);
+    const invalid = await api.post("/projects").send({ name: "" });
+    const unauthorized = await request(app).get("/tasks");
 
     expect(() => healthResponse.parse(health.body)).not.toThrow();
     expect(() => settingsResponse.parse(settings.body)).not.toThrow();
@@ -144,8 +201,14 @@ describe("documented response shapes", () => {
     expect(() => routineCheckResponse.array().parse(checks.body)).not.toThrow();
     expect(() => taskResponse.parse(task.body)).not.toThrow();
     expect(() => bulkResultResponse.parse(bulk.body)).not.toThrow();
+    expect(() => authSessionResponse.parse(registration.body)).not.toThrow();
+    expect(() => errorResponse.parse(emailTaken.body)).not.toThrow();
+    expect(() => authSessionResponse.parse(login.body)).not.toThrow();
+    expect(() => errorResponse.parse(wrongPassword.body)).not.toThrow();
     expect(() => errorResponse.parse(notFound.body)).not.toThrow();
     expect(() => errorResponse.parse(invalid.body)).not.toThrow();
     expect(invalid.body.error.details.length).toBeGreaterThan(0);
+    expect(unauthorized.status).toBe(401);
+    expect(() => errorResponse.parse(unauthorized.body)).not.toThrow();
   });
 });

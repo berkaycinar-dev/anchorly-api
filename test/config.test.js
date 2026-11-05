@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { loadConfig } from "../src/config.js";
+import { loadAuthConfig, loadConfig, loadMailConfig } from "../src/config.js";
 
 const validEnvironment = {
   DATABASE_URL: "postgres://anchorly:secret@localhost:5432/anchorly_dev",
@@ -10,7 +10,43 @@ describe("loadConfig", () => {
     expect(loadConfig(validEnvironment)).toEqual({
       port: 3000,
       databaseUrl: validEnvironment.DATABASE_URL,
+      trustProxy: 0,
     });
+  });
+
+  it("reads the number of trusted proxies", () => {
+    expect(
+      loadConfig({ ...validEnvironment, TRUST_PROXY: "1" }).trustProxy,
+    ).toBe(1);
+    expect(
+      loadConfig({ ...validEnvironment, TRUST_PROXY: " 2 " }).trustProxy,
+    ).toBe(2);
+  });
+
+  it("turns proxy trust off for the empty line from the example file", () => {
+    expect(
+      loadConfig({ ...validEnvironment, TRUST_PROXY: "" }).trustProxy,
+    ).toBe(0);
+    expect(
+      loadConfig({ ...validEnvironment, TRUST_PROXY: "0" }).trustProxy,
+    ).toBe(0);
+  });
+
+  it("rejects proxy settings that would trust any client", () => {
+    for (const value of [
+      "true",
+      "loopback",
+      "10.0.0.1",
+      "-1",
+      "1.5",
+      "6",
+      "10",
+    ]) {
+      expect(
+        () => loadConfig({ ...validEnvironment, TRUST_PROXY: value }),
+        value,
+      ).toThrow(/TRUST_PROXY/);
+    }
   });
 
   it("converts the port from text to a number", () => {
@@ -43,6 +79,128 @@ describe("loadConfig", () => {
     );
     expect(() => loadConfig({ ...validEnvironment, PORT: "70000" })).toThrow(
       /PORT/,
+    );
+  });
+});
+
+describe("loadAuthConfig", () => {
+  const jwtSecret = "a-random-secret-that-is-long-enough-42";
+
+  it("returns the secret and the default token lifetimes", () => {
+    expect(loadAuthConfig({ JWT_SECRET: jwtSecret })).toEqual({
+      jwtSecret,
+      accessTokenTtlSeconds: 900,
+      refreshTokenTtlDays: 30,
+      cookiePath: "/auth",
+      cookieSecure: true,
+    });
+  });
+
+  it("reads the refresh cookie path and secure flag", () => {
+    const config = loadAuthConfig({
+      JWT_SECRET: jwtSecret,
+      AUTH_COOKIE_PATH: "/api/auth",
+      AUTH_COOKIE_SECURE: "false",
+    });
+
+    expect(config.cookiePath).toBe("/api/auth");
+    expect(config.cookieSecure).toBe(false);
+  });
+
+  it("rejects a cookie path without a leading slash or an unclear flag", () => {
+    expect(() =>
+      loadAuthConfig({ JWT_SECRET: jwtSecret, AUTH_COOKIE_PATH: "auth" }),
+    ).toThrow(/AUTH_COOKIE_PATH/);
+    expect(() =>
+      loadAuthConfig({ JWT_SECRET: jwtSecret, AUTH_COOKIE_SECURE: "maybe" }),
+    ).toThrow(/AUTH_COOKIE_SECURE/);
+  });
+
+  it("converts the token lifetimes from text to numbers", () => {
+    const config = loadAuthConfig({
+      JWT_SECRET: jwtSecret,
+      ACCESS_TOKEN_TTL_SECONDS: "300",
+      REFRESH_TOKEN_TTL_DAYS: "7",
+    });
+
+    expect(config.accessTokenTtlSeconds).toBe(300);
+    expect(config.refreshTokenTtlDays).toBe(7);
+  });
+
+  it("rejects a missing or short secret", () => {
+    expect(() => loadAuthConfig({})).toThrow(/JWT_SECRET/);
+    expect(() => loadAuthConfig({ JWT_SECRET: "x".repeat(31) })).toThrow(
+      /at least 32 characters/,
+    );
+  });
+
+  it("rejects the placeholder secret from the example file", () => {
+    expect(() =>
+      loadAuthConfig({
+        JWT_SECRET: "change_me_to_a_random_string_of_at_least_32_characters",
+      }),
+    ).toThrow(/placeholder/);
+  });
+
+  it("rejects token lifetimes outside the allowed range", () => {
+    expect(() =>
+      loadAuthConfig({ JWT_SECRET: jwtSecret, ACCESS_TOKEN_TTL_SECONDS: "30" }),
+    ).toThrow(/ACCESS_TOKEN_TTL_SECONDS/);
+    expect(() =>
+      loadAuthConfig({ JWT_SECRET: jwtSecret, REFRESH_TOKEN_TTL_DAYS: "365" }),
+    ).toThrow(/REFRESH_TOKEN_TTL_DAYS/);
+  });
+
+  it("does not require the auth settings for loading the database config", () => {
+    expect(() => loadConfig(validEnvironment)).not.toThrow();
+  });
+});
+
+describe("loadMailConfig", () => {
+  it("prints emails to the console and links to the local frontend by default", () => {
+    expect(loadMailConfig({})).toEqual({
+      provider: "console",
+      from: "Anchorly <no-reply@anchorly.local>",
+      resendApiKey: null,
+      appUrl: "http://localhost:5173",
+    });
+  });
+
+  it("reads the Resend settings and drops a trailing slash from the app url", () => {
+    const config = loadMailConfig({
+      MAIL_PROVIDER: "resend",
+      RESEND_API_KEY: "re_secret",
+      MAIL_FROM: "Anchorly <no-reply@anchorly.app>",
+      APP_URL: "https://anchorly.app/",
+    });
+
+    expect(config).toEqual({
+      provider: "resend",
+      from: "Anchorly <no-reply@anchorly.app>",
+      resendApiKey: "re_secret",
+      appUrl: "https://anchorly.app",
+    });
+  });
+
+  it("requires a Resend key when Resend is chosen, even if the line is empty", () => {
+    expect(() => loadMailConfig({ MAIL_PROVIDER: "resend" })).toThrow(
+      /RESEND_API_KEY/,
+    );
+    expect(() =>
+      loadMailConfig({ MAIL_PROVIDER: "resend", RESEND_API_KEY: "  " }),
+    ).toThrow(/RESEND_API_KEY/);
+  });
+
+  it("accepts the empty key line from the example file when printing to the console", () => {
+    expect(loadMailConfig({ RESEND_API_KEY: "" }).resendApiKey).toBeNull();
+  });
+
+  it("rejects an unknown provider or an app url that is not http", () => {
+    expect(() => loadMailConfig({ MAIL_PROVIDER: "smtp" })).toThrow(
+      /MAIL_PROVIDER/,
+    );
+    expect(() => loadMailConfig({ APP_URL: "javascript:alert(1)" })).toThrow(
+      /APP_URL/,
     );
   });
 });

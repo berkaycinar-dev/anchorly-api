@@ -1,14 +1,31 @@
 import { createApp } from "./app.js";
-import { loadConfig, loadEnvFile } from "./config.js";
+import {
+  loadAuthConfig,
+  loadConfig,
+  loadEnvFile,
+  loadMailConfig,
+} from "./config.js";
 import { createDatabase } from "./db/client.js";
+import { createMailer } from "./mail/mailers.js";
 
 loadEnvFile();
 
 const config = loadConfig();
+const auth = loadAuthConfig();
+const mail = loadMailConfig();
 const database = createDatabase(config.databaseUrl);
+const mailer = createMailer(mail);
 
-const server = createApp({ database }).listen(config.port, () => {
+const server = createApp({
+  database,
+  auth,
+  mailer,
+  appUrl: mail.appUrl,
+  trustProxy: config.trustProxy,
+}).listen(config.port, () => {
   console.log(`anchorly-api listening on http://localhost:${config.port}`);
+  console.log(`Emails: ${mail.provider}, links point to ${mail.appUrl}`);
+  console.log(`Trusted proxies: ${config.trustProxy}`);
 });
 
 function shutdown() {
