@@ -11,7 +11,7 @@
 
 Görev ve alışkanlık takip uygulaması [Anchorly](https://github.com/berkaycinar-dev/Anchorly)'nin REST API'si. Her kullanıcının görevlerini, günlük rutinlerini, projelerini ve ayarlarını PostgreSQL'de saklar; böylece veriler kullanıcıyla birlikte cihazdan cihaza taşınabilir.
 
-> **Durum:** veri API'si, hesaplar ve giriş tamamlandı ve test edildi. Sırada frontend'in bağlanması var.
+> **Durum:** veri API'si, hesaplar ve giriş tamamlandı ve test edildi. Frontend bağlandı, API Render'da, PostgreSQL ise Neon'da yayında. Sırada gerçek e-posta gönderimi var.
 
 ---
 
@@ -247,7 +247,9 @@ test/             testler ve test yardımcıları
 ## Bilinen sınırlamalar
 
 - İstek sınırı sayaçları bellekte tutulur; sunucu yeniden başlayınca sıfırlanır ve sunucular arasında paylaşılmaz. Tek sunucu için yeterli.
-- Henüz güvenlik başlıkları (`helmet`) ve CORS listesi yok; yayına almayla birlikte gelecekler.
+- Henüz güvenlik başlıkları (`helmet`) ve CORS listesi yok. Üretimde frontend API'ye aynı kökenli bir vekil üzerinden eriştiği için CORS gerekmiyor.
+- Ücretsiz barındırma planı 15 dakika istek almazsa uykuya geçer; duraklamadan sonraki ilk istek bir dakikaya kadar sürebilir.
+- Gerçek bir sağlayıcı kurulana kadar e-postalar sunucu günlüğüne yazılır (`MAIL_PROVIDER=console`).
 - E-posta adresi değiştirme henüz yok.
 - Dosya ekleri kabul edilir ama yok sayılır; ayrı bir depolamaya taşınacaklar.
 
@@ -258,9 +260,10 @@ test/             testler ve test yardımcıları
 - [x] Görevler, rutinler, projeler ve ayarlar için REST API
 - [x] OpenAPI belgesi ve sürekli entegrasyon
 - [x] Kayıt, giriş, e-posta doğrulama, parola sıfırlama, oturumlar, veri dışa aktarma ve hesap silme
-- [ ] Frontend'in bağlanması ve çevrimdışı değişikliklerin eşitlenmesi
+- [x] Frontend'in bağlanması ve çevrimdışı değişikliklerin eşitlenmesi
 - [ ] Dosya eklerinin nesne depolamaya taşınması
-- [ ] Yayına alma
+- [x] Yayına alma (Render ve Neon, şema `render.yaml` içinde)
+- [ ] Gerçek e-posta gönderimi
 
 ---
 

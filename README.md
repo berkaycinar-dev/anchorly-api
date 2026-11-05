@@ -11,7 +11,7 @@
 
 The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a task and habit dashboard. It stores each user's tasks, daily routines, projects and settings in PostgreSQL so they can follow the user across devices.
 
-> **Status:** the data API, accounts and sign-in are complete and tested. Next comes connecting the frontend.
+> **Status:** the data API, accounts and sign-in are complete and tested. The frontend is connected, and the API is deployed on Render with PostgreSQL on Neon. Real email delivery comes next.
 
 ---
 
@@ -247,7 +247,9 @@ test/             tests and test helpers
 ## Known limitations
 
 - Rate limit counters live in memory, so they reset on restart and are not shared between servers. Enough for a single server.
-- No security headers (`helmet`) or CORS list yet; they come with deployment.
+- No security headers (`helmet`) or CORS list yet. In production the frontend reaches the API through a same-origin proxy, so CORS is not needed.
+- The free hosting plan sleeps after 15 minutes without requests; the first request after a pause can take up to a minute.
+- Emails are printed to the server log (`MAIL_PROVIDER=console`) until a real provider is set up.
 - Changing the email address is not supported yet.
 - File attachments are accepted and ignored. They will get their own storage.
 
@@ -258,9 +260,10 @@ test/             tests and test helpers
 - [x] REST API for tasks, routines, projects and settings
 - [x] OpenAPI documentation and continuous integration
 - [x] Sign up, sign in, email verification, password reset, sessions, data export and account deletion
-- [ ] Connect the frontend, with offline changes synced later
+- [x] Connect the frontend, with offline changes synced later
 - [ ] File attachments in object storage
-- [ ] Deployment
+- [x] Deployment (Render and Neon, blueprint in `render.yaml`)
+- [ ] Real email delivery
 
 ---
 
