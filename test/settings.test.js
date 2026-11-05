@@ -11,6 +11,7 @@ const defaultSettings = {
   language: "tr",
   fontFamily: "Inter",
   weekStartDay: "monday",
+  timezone: "UTC",
   dashboardLayout: [
     { id: "todayRing", size: "small" },
     { id: "weeklyRoutine", size: "small" },
@@ -134,6 +135,38 @@ describe("/me/settings", () => {
 
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe("VALIDATION_ERROR");
+    });
+
+    it("stores a valid IANA time zone", async () => {
+      const response = await api
+        .patch("/me/settings")
+        .send({ timezone: "Europe/Istanbul" });
+
+      expect(response.status).toBe(200);
+      expect(response.body.timezone).toBe("Europe/Istanbul");
+      expect((await readStoredSettings(DEV_USER.id)).timezone).toBe(
+        "Europe/Istanbul",
+      );
+    });
+
+    it("rejects an unknown time zone", async () => {
+      const response = await api
+        .patch("/me/settings")
+        .send({ timezone: "Mars/Olympus" });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error.code).toBe("VALIDATION_ERROR");
+      expect((await readStoredSettings(DEV_USER.id)).timezone).toBe("UTC");
+    });
+
+    it("rejects an empty or oversized time zone", async () => {
+      const empty = await api.patch("/me/settings").send({ timezone: "" });
+      const long = await api
+        .patch("/me/settings")
+        .send({ timezone: "A".repeat(65) });
+
+      expect(empty.status).toBe(400);
+      expect(long.status).toBe(400);
     });
 
     it("replaces the whole dashboard layout and keeps its order", async () => {

@@ -92,6 +92,7 @@ describe("database schema", () => {
       language: "tr",
       fontFamily: "Inter",
       weekStartDay: "monday",
+      timezone: "UTC",
       dashboardLayout: [
         { id: "todayRing", size: "small" },
         { id: "weeklyRoutine", size: "small" },

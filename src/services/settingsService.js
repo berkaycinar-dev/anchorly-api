@@ -7,6 +7,7 @@ function toSettings(row) {
     language: row.language,
     fontFamily: row.fontFamily,
     weekStartDay: row.weekStartDay,
+    timezone: row.timezone,
     dashboardLayout: row.dashboardLayout,
   };
 }

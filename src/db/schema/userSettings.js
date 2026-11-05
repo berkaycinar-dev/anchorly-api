@@ -20,6 +20,7 @@ export const userSettings = pgTable(
     language: text().notNull().default(DEFAULT_SETTINGS.language),
     fontFamily: text().notNull().default(DEFAULT_SETTINGS.fontFamily),
     weekStartDay: text().notNull().default(DEFAULT_SETTINGS.weekStartDay),
+    timezone: text().notNull().default(DEFAULT_SETTINGS.timezone),
     dashboardLayout: jsonb()
       .notNull()
       .default(DEFAULT_SETTINGS.dashboardLayout),

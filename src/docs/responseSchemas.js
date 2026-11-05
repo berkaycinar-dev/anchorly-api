@@ -28,6 +28,7 @@ export const settingsResponse = z.strictObject({
   language: z.enum(LANGUAGES),
   fontFamily: z.enum(FONT_FAMILIES),
   weekStartDay: z.enum(WEEK_START_DAYS),
+  timezone: z.string(),
   dashboardLayout: z.array(
     z.strictObject({
       id: z.string(),
