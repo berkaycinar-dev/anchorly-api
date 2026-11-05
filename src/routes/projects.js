@@ -27,6 +27,7 @@ export function createProjectsRouter({ db }) {
         db,
         request.user.id,
         request.validated.body,
+        request.clientTime,
       );
 
       response.status(created ? 201 : 200).json(project);
@@ -42,6 +43,7 @@ export function createProjectsRouter({ db }) {
         request.user.id,
         request.validated.params.id,
         request.validated.body,
+        request.clientTime,
       );
 
       response.json(project);
@@ -52,7 +54,12 @@ export function createProjectsRouter({ db }) {
     "/:id",
     validate({ params: projectIdParams }),
     async (request, response) => {
-      await deleteProject(db, request.user.id, request.validated.params.id);
+      await deleteProject(
+        db,
+        request.user.id,
+        request.validated.params.id,
+        request.clientTime,
+      );
       response.status(204).end();
     },
   );

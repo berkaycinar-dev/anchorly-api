@@ -1,5 +1,6 @@
 import { z } from "zod";
 import {
+  DASHBOARD_CARD_SIZES,
   FONT_FAMILIES,
   LANGUAGES,
   THEMES,
@@ -27,6 +28,13 @@ export const settingsResponse = z.strictObject({
   language: z.enum(LANGUAGES),
   fontFamily: z.enum(FONT_FAMILIES),
   weekStartDay: z.enum(WEEK_START_DAYS),
+  timezone: z.string(),
+  dashboardLayout: z.array(
+    z.strictObject({
+      id: z.string(),
+      size: z.enum(DASHBOARD_CARD_SIZES),
+    }),
+  ),
 });
 
 export const projectResponse = z.strictObject({
@@ -86,6 +94,18 @@ export const bulkResultResponse = z.strictObject({
       }),
     ]),
   ),
+});
+
+const importCountResponse = z.strictObject({
+  imported: z.number().int().min(0),
+  skipped: z.number().int().min(0),
+});
+
+export const importResultResponse = z.strictObject({
+  projects: importCountResponse,
+  routines: importCountResponse,
+  routineChecks: importCountResponse,
+  tasks: importCountResponse,
 });
 
 export const userResponse = z.strictObject({
@@ -148,6 +168,7 @@ export const RESPONSE_SCHEMAS = {
   RoutineCheck: routineCheckResponse,
   Task: taskResponse,
   BulkResult: bulkResultResponse,
+  ImportResult: importResultResponse,
   User: userResponse,
   AuthSession: authSessionResponse,
   UserResult: userResultResponse,

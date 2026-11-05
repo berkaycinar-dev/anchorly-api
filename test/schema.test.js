@@ -92,6 +92,12 @@ describe("database schema", () => {
       language: "tr",
       fontFamily: "Inter",
       weekStartDay: "monday",
+      timezone: "UTC",
+      dashboardLayout: [
+        { id: "todayRing", size: "small" },
+        { id: "weeklyRoutine", size: "small" },
+        { id: "upcoming", size: "wide" },
+      ],
     });
   });
 
@@ -112,6 +118,12 @@ describe("database schema", () => {
       db
         .insert(userSettings)
         .values({ userId: alice.id, weekStartDay: "friday" }),
+      CHECK_VIOLATION,
+    );
+    await expectDatabaseError(
+      db
+        .insert(userSettings)
+        .values({ userId: alice.id, dashboardLayout: { id: "streaks" } }),
       CHECK_VIOLATION,
     );
   });

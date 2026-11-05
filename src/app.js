@@ -6,6 +6,7 @@ import {
   createErrorHandler,
   notFoundHandler,
 } from "./middleware/errorHandlers.js";
+import { readClientTime } from "./middleware/clientTime.js";
 import { createRateLimiters } from "./middleware/rateLimits.js";
 import { createRequireAuth } from "./middleware/requireAuth.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
@@ -39,7 +40,16 @@ export function createApp({
 
   app.disable("x-powered-by");
   app.set("trust proxy", trustProxy > 0 ? trustProxy : false);
-  app.use(express.json({ limit: "100kb" }));
+  const defaultJsonParser = express.json({ limit: "100kb" });
+
+  app.use((request, response, next) => {
+    if (request.path === "/import") {
+      next();
+      return;
+    }
+
+    defaultJsonParser(request, response, next);
+  });
 
   app.get("/health", async (request, response) => {
     try {
@@ -75,6 +85,7 @@ export function createApp({
     app.use(
       path,
       requireAuth,
+      readClientTime(),
       createRouter({ db: database.db, auth, limiters }),
     );
   }

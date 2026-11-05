@@ -9,6 +9,7 @@ import {
 } from "../lib/httpError.js";
 import { toTask, toTaskColumns } from "../mappers/tasks.js";
 import { COMPLETED_AT_MESSAGE } from "../schemas/tasks.js";
+import { deletionTime, notNewerThan, stamp } from "./lastWriteWins.js";
 
 function activeTask(userId, id) {
   return and(
@@ -57,14 +58,14 @@ export async function listTasks(db, userId) {
   return rows.map(toTask);
 }
 
-export async function createTask(db, userId, input) {
+export async function createTask(db, userId, input, clientTime = null) {
   const columns = toTaskColumns(input);
 
   await assertProjectIsUsable(db, userId, columns.projectId);
 
   const [created] = await db
     .insert(tasks)
-    .values({ userId, id: input.id, ...columns })
+    .values({ userId, id: input.id, ...columns, ...stamp(clientTime) })
     .onConflictDoNothing()
     .returning();
 
@@ -84,7 +85,7 @@ export async function createTask(db, userId, input) {
   throw conflictError(`A task with id ${input.id} already exists`);
 }
 
-export async function updateTask(db, userId, id, input) {
+export async function updateTask(db, userId, id, input, clientTime = null) {
   if (input.id !== undefined && input.id !== id) {
     throw validationError([
       { path: "body.id", message: "The task id cannot be changed" },
@@ -98,6 +99,10 @@ export async function updateTask(db, userId, id, input) {
 
   if (!existing) {
     throw notFoundError("Task not found");
+  }
+
+  if (clientTime && existing.updatedAt > clientTime) {
+    return toTask(existing);
   }
 
   const columns = toTaskColumns(input);
@@ -123,30 +128,48 @@ export async function updateTask(db, userId, id, input) {
 
   const [updated] = await db
     .update(tasks)
-    .set(columns)
-    .where(activeTask(userId, id))
+    .set({ ...columns, ...stamp(clientTime) })
+    .where(and(activeTask(userId, id), notNewerThan(tasks, clientTime)))
     .returning();
 
-  if (!updated) {
+  if (updated) {
+    return toTask(updated);
+  }
+
+  const [current] = await db.select().from(tasks).where(activeTask(userId, id));
+
+  if (!current) {
     throw notFoundError("Task not found");
   }
 
-  return toTask(updated);
+  return toTask(current);
 }
 
-export async function deleteTask(db, userId, id) {
+export async function deleteTask(db, userId, id, clientTime = null) {
   const [deleted] = await db
     .update(tasks)
-    .set({ deletedAt: new Date() })
-    .where(activeTask(userId, id))
+    .set({ deletedAt: deletionTime(clientTime), ...stamp(clientTime) })
+    .where(and(activeTask(userId, id), notNewerThan(tasks, clientTime)))
     .returning();
 
-  if (!deleted) {
+  if (deleted) {
+    return;
+  }
+
+  const [current] = await db
+    .select({ id: tasks.id })
+    .from(tasks)
+    .where(activeTask(userId, id));
+
+  if (!current) {
     throw notFoundError("Task not found");
   }
 }
 
-export async function reorderTasks(db, userId, orderedIds) {
+export async function reorderTasks(db, userId, orderedIds, clientTime = null) {
+  const updatedAt = clientTime
+    ? sql`greatest(${tasks.updatedAt}, ${clientTime.toISOString()}::timestamptz)`
+    : sql`now()`;
   const idArray = sql`array[${sql.join(
     orderedIds.map((id) => sql`${id}`),
     sql`, `,
@@ -155,7 +178,7 @@ export async function reorderTasks(db, userId, orderedIds) {
   await db.transaction(async (tx) => {
     const result = await tx.execute(sql`
       update ${tasks}
-      set position = ordered.position - 1, updated_at = now()
+      set position = ordered.position - 1, updated_at = ${updatedAt}
       from unnest(${idArray}) with ordinality as ordered(id, position)
       where ${tasks.userId} = ${userId}
         and ${tasks.id} = ordered.id
@@ -192,31 +215,42 @@ function toOperationError(error, index, type) {
   );
 }
 
-async function runOperation(tx, userId, operation) {
+async function runOperation(tx, userId, operation, clientTime) {
   if (operation.type === "create") {
-    const { task, created } = await createTask(tx, userId, operation.task);
+    const { task, created } = await createTask(
+      tx,
+      userId,
+      operation.task,
+      clientTime,
+    );
 
     return { type: "create", status: created ? 201 : 200, task };
   }
 
   if (operation.type === "update") {
-    const task = await updateTask(tx, userId, operation.id, operation.patch);
+    const task = await updateTask(
+      tx,
+      userId,
+      operation.id,
+      operation.patch,
+      clientTime,
+    );
 
     return { type: "update", status: 200, task };
   }
 
-  await deleteTask(tx, userId, operation.id);
+  await deleteTask(tx, userId, operation.id, clientTime);
 
   return { type: "delete", status: 204, id: operation.id };
 }
 
-export function bulkTasks(db, userId, operations) {
+export function bulkTasks(db, userId, operations, clientTime = null) {
   return db.transaction(async (tx) => {
     const results = [];
 
     for (const [index, operation] of operations.entries()) {
       try {
-        results.push(await runOperation(tx, userId, operation));
+        results.push(await runOperation(tx, userId, operation, clientTime));
       } catch (error) {
         throw toOperationError(error, index, operation.type);
       }

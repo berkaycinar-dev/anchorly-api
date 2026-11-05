@@ -1,0 +1,26 @@
+services:
+  - type: web
+    name: anchorly-api
+    runtime: node
+    plan: free
+    region: frankfurt
+    buildCommand: npm ci
+    startCommand: npm run db:migrate && npm start
+    healthCheckPath: /health
+    envVars:
+      - key: NODE_VERSION
+        value: "22"
+      - key: DATABASE_URL
+        sync: false
+      - key: APP_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: TRUST_PROXY
+        value: "2"
+      - key: AUTH_COOKIE_PATH
+        value: /api/auth
+      - key: AUTH_COOKIE_SECURE
+        value: "true"
+      - key: MAIL_PROVIDER
+        value: console

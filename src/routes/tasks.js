@@ -31,6 +31,7 @@ export function createTasksRouter({ db }) {
         db,
         request.user.id,
         request.validated.body,
+        request.clientTime,
       );
 
       response.status(created ? 201 : 200).json(task);
@@ -45,6 +46,7 @@ export function createTasksRouter({ db }) {
         db,
         request.user.id,
         request.validated.body.orderedIds,
+        request.clientTime,
       );
       response.status(204).end();
     },
@@ -58,6 +60,7 @@ export function createTasksRouter({ db }) {
         db,
         request.user.id,
         request.validated.body.operations,
+        request.clientTime,
       );
 
       response.json({ results });
@@ -73,6 +76,7 @@ export function createTasksRouter({ db }) {
         request.user.id,
         request.validated.params.id,
         request.validated.body,
+        request.clientTime,
       );
 
       response.json(task);
@@ -83,7 +87,12 @@ export function createTasksRouter({ db }) {
     "/:id",
     validate({ params: taskIdParams }),
     async (request, response) => {
-      await deleteTask(db, request.user.id, request.validated.params.id);
+      await deleteTask(
+        db,
+        request.user.id,
+        request.validated.params.id,
+        request.clientTime,
+      );
       response.status(204).end();
     },
   );

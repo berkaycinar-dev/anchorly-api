@@ -8,6 +8,7 @@ import {
   bulkResultResponse,
   errorResponse,
   healthResponse,
+  importResultResponse,
   projectResponse,
   routineCheckResponse,
   routineResponse,
@@ -97,6 +98,41 @@ describe("OpenAPI document", () => {
     }
   });
 
+  it("lists the client time header on every change to user data and nowhere else", () => {
+    const document = buildOpenApiDocument();
+    const withHeader = [];
+
+    for (const [path, item] of Object.entries(document.paths)) {
+      for (const method of HTTP_METHODS.filter((name) => item[name])) {
+        const names = (item[method].parameters ?? []).map(
+          (parameter) => parameter.name,
+        );
+
+        if (names.includes("X-Client-Time")) {
+          withHeader.push(`${method.toUpperCase()} ${path}`);
+        }
+      }
+    }
+
+    expect(withHeader.sort()).toEqual(
+      [
+        "PATCH /me/settings",
+        "POST /projects",
+        "PATCH /projects/{id}",
+        "DELETE /projects/{id}",
+        "POST /routines",
+        "PATCH /routines/{id}",
+        "DELETE /routines/{id}",
+        "PUT /routines/{id}/checks/{date}",
+        "POST /tasks",
+        "POST /tasks/reorder",
+        "POST /tasks/bulk",
+        "PATCH /tasks/{id}",
+        "DELETE /tasks/{id}",
+      ].sort(),
+    );
+  });
+
   it("shows the real range of the access token lifetime", () => {
     const property =
       buildOpenApiDocument().components.schemas.AuthSession.properties
@@ -177,6 +213,9 @@ describe("documented response shapes", () => {
         { type: "delete", id: taskId },
       ],
     });
+    const imported = await api.post("/import").send({
+      projects: [{ id: "bbbbbbbb-0000-4000-8000-0000000000a1", name: "Imp" }],
+    });
     const registration = await request(app)
       .post("/auth/register")
       .send({ email: "shape@example.com", password: "long enough" });
@@ -201,6 +240,7 @@ describe("documented response shapes", () => {
     expect(() => routineCheckResponse.array().parse(checks.body)).not.toThrow();
     expect(() => taskResponse.parse(task.body)).not.toThrow();
     expect(() => bulkResultResponse.parse(bulk.body)).not.toThrow();
+    expect(() => importResultResponse.parse(imported.body)).not.toThrow();
     expect(() => authSessionResponse.parse(registration.body)).not.toThrow();
     expect(() => errorResponse.parse(emailTaken.body)).not.toThrow();
     expect(() => authSessionResponse.parse(login.body)).not.toThrow();
