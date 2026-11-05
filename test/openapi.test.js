@@ -8,6 +8,7 @@ import {
   bulkResultResponse,
   errorResponse,
   healthResponse,
+  importResultResponse,
   projectResponse,
   routineCheckResponse,
   routineResponse,
@@ -177,6 +178,9 @@ describe("documented response shapes", () => {
         { type: "delete", id: taskId },
       ],
     });
+    const imported = await api.post("/import").send({
+      projects: [{ id: "bbbbbbbb-0000-4000-8000-0000000000a1", name: "Imp" }],
+    });
     const registration = await request(app)
       .post("/auth/register")
       .send({ email: "shape@example.com", password: "long enough" });
@@ -201,6 +205,7 @@ describe("documented response shapes", () => {
     expect(() => routineCheckResponse.array().parse(checks.body)).not.toThrow();
     expect(() => taskResponse.parse(task.body)).not.toThrow();
     expect(() => bulkResultResponse.parse(bulk.body)).not.toThrow();
+    expect(() => importResultResponse.parse(imported.body)).not.toThrow();
     expect(() => authSessionResponse.parse(registration.body)).not.toThrow();
     expect(() => errorResponse.parse(emailTaken.body)).not.toThrow();
     expect(() => authSessionResponse.parse(login.body)).not.toThrow();

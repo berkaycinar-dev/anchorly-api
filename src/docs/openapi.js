@@ -21,6 +21,7 @@ import {
   deleteAccountSchema,
   updateMeSchema,
 } from "../schemas/account.js";
+import { importSchema } from "../schemas/import.js";
 import { settingsPatchSchema } from "../schemas/settings.js";
 import {
   bulkTasksSchema,
@@ -187,6 +188,7 @@ export function buildOpenApiDocument() {
       { name: "Projects" },
       { name: "Routines" },
       { name: "Tasks" },
+      { name: "Import" },
     ],
     paths: addRateLimitResponses(
       requireBearerToken({
@@ -542,6 +544,22 @@ export function buildOpenApiDocument() {
                 400: errors[400],
                 404: errors[404],
                 409: errors[409],
+              },
+            },
+          ),
+        },
+        "/import": {
+          post: operation(
+            "Import",
+            "Add projects, routines, routine checks and tasks from a device in one transaction. Records that already exist (or were deleted) keep the server version and are counted as skipped. The body may be up to 8 MB",
+            {
+              requestBody: body(importSchema),
+              responses: {
+                200: json(
+                  "How many records were added or skipped",
+                  ref("ImportResult"),
+                ),
+                400: errors[400],
               },
             },
           ),
