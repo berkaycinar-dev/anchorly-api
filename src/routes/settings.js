@@ -18,6 +18,7 @@ export function createSettingsRouter({ db }) {
         db,
         request.user.id,
         request.validated.body,
+        request.clientTime,
       );
 
       response.json(settings);

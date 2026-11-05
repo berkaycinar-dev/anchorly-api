@@ -6,6 +6,7 @@ import {
   createErrorHandler,
   notFoundHandler,
 } from "./middleware/errorHandlers.js";
+import { readClientTime } from "./middleware/clientTime.js";
 import { createRateLimiters } from "./middleware/rateLimits.js";
 import { createRequireAuth } from "./middleware/requireAuth.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
@@ -84,6 +85,7 @@ export function createApp({
     app.use(
       path,
       requireAuth,
+      readClientTime(),
       createRouter({ db: database.db, auth, limiters }),
     );
   }

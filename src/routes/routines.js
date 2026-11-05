@@ -35,6 +35,7 @@ export function createRoutinesRouter({ db }) {
         db,
         request.user.id,
         request.validated.body,
+        request.clientTime,
       );
 
       response.status(created ? 201 : 200).json(routine);
@@ -50,6 +51,7 @@ export function createRoutinesRouter({ db }) {
         request.user.id,
         request.validated.params.id,
         request.validated.body,
+        request.clientTime,
       );
 
       response.json(routine);
@@ -60,7 +62,12 @@ export function createRoutinesRouter({ db }) {
     "/:id",
     validate({ params: routineIdParams }),
     async (request, response) => {
-      await deleteRoutine(db, request.user.id, request.validated.params.id);
+      await deleteRoutine(
+        db,
+        request.user.id,
+        request.validated.params.id,
+        request.clientTime,
+      );
       response.status(204).end();
     },
   );
@@ -76,6 +83,7 @@ export function createRoutinesRouter({ db }) {
         id,
         date,
         request.validated.body.checked,
+        request.clientTime,
       );
 
       response.json(check);

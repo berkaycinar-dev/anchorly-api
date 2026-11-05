@@ -98,6 +98,41 @@ describe("OpenAPI document", () => {
     }
   });
 
+  it("lists the client time header on every change to user data and nowhere else", () => {
+    const document = buildOpenApiDocument();
+    const withHeader = [];
+
+    for (const [path, item] of Object.entries(document.paths)) {
+      for (const method of HTTP_METHODS.filter((name) => item[name])) {
+        const names = (item[method].parameters ?? []).map(
+          (parameter) => parameter.name,
+        );
+
+        if (names.includes("X-Client-Time")) {
+          withHeader.push(`${method.toUpperCase()} ${path}`);
+        }
+      }
+    }
+
+    expect(withHeader.sort()).toEqual(
+      [
+        "PATCH /me/settings",
+        "POST /projects",
+        "PATCH /projects/{id}",
+        "DELETE /projects/{id}",
+        "POST /routines",
+        "PATCH /routines/{id}",
+        "DELETE /routines/{id}",
+        "PUT /routines/{id}/checks/{date}",
+        "POST /tasks",
+        "POST /tasks/reorder",
+        "POST /tasks/bulk",
+        "PATCH /tasks/{id}",
+        "DELETE /tasks/{id}",
+      ].sort(),
+    );
+  });
+
   it("shows the real range of the access token lifetime", () => {
     const property =
       buildOpenApiDocument().components.schemas.AuthSession.properties

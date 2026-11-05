@@ -1,6 +1,7 @@
 import { and, asc, eq, isNull, sql } from "drizzle-orm";
 import { routineChecks, routines } from "../db/schema/index.js";
 import { conflictError, notFoundError } from "../lib/httpError.js";
+import { deletionTime, notNewerThan, stamp } from "./lastWriteWins.js";
 
 function toRoutine(row) {
   return { id: row.id, title: row.title };
@@ -49,7 +50,12 @@ export async function listRoutineChecks(db, userId) {
   return rows.map(toRoutineCheck);
 }
 
-export async function createRoutine(db, userId, { id, title }) {
+export async function createRoutine(
+  db,
+  userId,
+  { id, title },
+  clientTime = null,
+) {
   const nextPosition = sql`(
     select coalesce(max(${routines.position}), -1) + 1
     from ${routines}
@@ -58,7 +64,13 @@ export async function createRoutine(db, userId, { id, title }) {
 
   const [created] = await db
     .insert(routines)
-    .values({ userId, id, title, position: nextPosition })
+    .values({
+      userId,
+      id,
+      title,
+      position: nextPosition,
+      ...stamp(clientTime),
+    })
     .onConflictDoNothing()
     .returning();
 
@@ -78,33 +90,64 @@ export async function createRoutine(db, userId, { id, title }) {
   throw conflictError(`A routine with id ${id} already exists`);
 }
 
-export async function updateRoutine(db, userId, id, { title }) {
+export async function updateRoutine(
+  db,
+  userId,
+  id,
+  { title },
+  clientTime = null,
+) {
   const [updated] = await db
     .update(routines)
-    .set({ title })
-    .where(activeRoutine(userId, id))
+    .set({ title, ...stamp(clientTime) })
+    .where(and(activeRoutine(userId, id), notNewerThan(routines, clientTime)))
     .returning();
 
-  if (!updated) {
+  if (updated) {
+    return toRoutine(updated);
+  }
+
+  const [current] = await db
+    .select()
+    .from(routines)
+    .where(activeRoutine(userId, id));
+
+  if (!current) {
     throw notFoundError("Routine not found");
   }
 
-  return toRoutine(updated);
+  return toRoutine(current);
 }
 
-export async function deleteRoutine(db, userId, id) {
+export async function deleteRoutine(db, userId, id, clientTime = null) {
   const [deleted] = await db
     .update(routines)
-    .set({ deletedAt: new Date() })
-    .where(activeRoutine(userId, id))
+    .set({ deletedAt: deletionTime(clientTime), ...stamp(clientTime) })
+    .where(and(activeRoutine(userId, id), notNewerThan(routines, clientTime)))
     .returning();
 
-  if (!deleted) {
+  if (deleted) {
+    return;
+  }
+
+  const [current] = await db
+    .select({ id: routines.id })
+    .from(routines)
+    .where(activeRoutine(userId, id));
+
+  if (!current) {
     throw notFoundError("Routine not found");
   }
 }
 
-export async function setRoutineCheck(db, userId, routineId, date, checked) {
+export async function setRoutineCheck(
+  db,
+  userId,
+  routineId,
+  date,
+  checked,
+  clientTime = null,
+) {
   const [routine] = await db
     .select({ id: routines.id })
     .from(routines)
@@ -116,16 +159,32 @@ export async function setRoutineCheck(db, userId, routineId, date, checked) {
 
   const [row] = await db
     .insert(routineChecks)
-    .values({ userId, routineId, date, checked })
+    .values({ userId, routineId, date, checked, ...stamp(clientTime) })
     .onConflictDoUpdate({
       target: [
         routineChecks.userId,
         routineChecks.routineId,
         routineChecks.date,
       ],
-      set: { checked },
+      set: { checked, ...stamp(clientTime) },
+      setWhere: notNewerThan(routineChecks, clientTime),
     })
     .returning();
 
-  return toRoutineCheck(row);
+  if (row) {
+    return toRoutineCheck(row);
+  }
+
+  const [current] = await db
+    .select()
+    .from(routineChecks)
+    .where(
+      and(
+        eq(routineChecks.userId, userId),
+        eq(routineChecks.routineId, routineId),
+        eq(routineChecks.date, date),
+      ),
+    );
+
+  return toRoutineCheck(current);
 }

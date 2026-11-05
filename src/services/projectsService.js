@@ -1,6 +1,12 @@
 import { and, asc, eq, isNull } from "drizzle-orm";
 import { projects, tasks } from "../db/schema/index.js";
 import { conflictError, notFoundError } from "../lib/httpError.js";
+import {
+  deletionTime,
+  latestUpdate,
+  notNewerThan,
+  stamp,
+} from "./lastWriteWins.js";
 
 function toProject(row) {
   return { id: row.id, name: row.name };
@@ -24,10 +30,15 @@ export async function listProjects(db, userId) {
   return rows.map(toProject);
 }
 
-export async function createProject(db, userId, { id, name }) {
+export async function createProject(
+  db,
+  userId,
+  { id, name },
+  clientTime = null,
+) {
   const [created] = await db
     .insert(projects)
-    .values({ userId, id, name })
+    .values({ userId, id, name, ...stamp(clientTime) })
     .onConflictDoNothing()
     .returning();
 
@@ -47,35 +58,59 @@ export async function createProject(db, userId, { id, name }) {
   throw conflictError(`A project with id ${id} already exists`);
 }
 
-export async function updateProject(db, userId, id, { name }) {
+export async function updateProject(
+  db,
+  userId,
+  id,
+  { name },
+  clientTime = null,
+) {
   const [updated] = await db
     .update(projects)
-    .set({ name })
-    .where(activeProject(userId, id))
+    .set({ name, ...stamp(clientTime) })
+    .where(and(activeProject(userId, id), notNewerThan(projects, clientTime)))
     .returning();
 
-  if (!updated) {
+  if (updated) {
+    return toProject(updated);
+  }
+
+  const [current] = await db
+    .select()
+    .from(projects)
+    .where(activeProject(userId, id));
+
+  if (!current) {
     throw notFoundError("Project not found");
   }
 
-  return toProject(updated);
+  return toProject(current);
 }
 
-export async function deleteProject(db, userId, id) {
+export async function deleteProject(db, userId, id, clientTime = null) {
   await db.transaction(async (tx) => {
     const [deleted] = await tx
       .update(projects)
-      .set({ deletedAt: new Date() })
-      .where(activeProject(userId, id))
+      .set({ deletedAt: deletionTime(clientTime), ...stamp(clientTime) })
+      .where(and(activeProject(userId, id), notNewerThan(projects, clientTime)))
       .returning();
 
     if (!deleted) {
-      throw notFoundError("Project not found");
+      const [current] = await tx
+        .select({ id: projects.id })
+        .from(projects)
+        .where(activeProject(userId, id));
+
+      if (!current) {
+        throw notFoundError("Project not found");
+      }
+
+      return;
     }
 
     await tx
       .update(tasks)
-      .set({ projectId: null })
+      .set({ projectId: null, ...latestUpdate(tasks, clientTime) })
       .where(and(eq(tasks.userId, userId), eq(tasks.projectId, id)));
   });
 }

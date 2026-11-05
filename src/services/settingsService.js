@@ -1,5 +1,6 @@
 import { eq } from "drizzle-orm";
 import { userSettings } from "../db/schema/index.js";
+import { notNewerThan, stamp } from "./lastWriteWins.js";
 
 function toSettings(row) {
   return {
@@ -33,15 +34,16 @@ export async function getSettings(db, userId) {
   return toSettings(await findSettingsRow(db, userId));
 }
 
-export async function updateSettings(db, userId, patch) {
+export async function updateSettings(db, userId, patch, clientTime = null) {
   const [row] = await db
     .insert(userSettings)
-    .values({ userId, ...patch })
+    .values({ userId, ...patch, ...stamp(clientTime) })
     .onConflictDoUpdate({
       target: userSettings.userId,
-      set: patch,
+      set: { ...patch, ...stamp(clientTime) },
+      setWhere: notNewerThan(userSettings, clientTime),
     })
     .returning();
 
-  return toSettings(row);
+  return toSettings(row ?? (await findSettingsRow(db, userId)));
 }
