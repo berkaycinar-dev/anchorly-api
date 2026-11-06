@@ -162,7 +162,7 @@ describe("auth sessions", () => {
     it("revokes the whole session when an old token comes back later", async () => {
       const login = await signIn();
       const rotated = await refresh(login.refreshToken);
-      await updateOnlySession({ rotatedAt: new Date(Date.now() - 31 * 1000) });
+      await updateOnlySession({ rotatedAt: new Date(Date.now() - 301 * 1000) });
 
       const reuse = await refresh(login.refreshToken);
 
@@ -172,7 +172,7 @@ describe("auth sessions", () => {
       expect((await getSettings(rotated.body.accessToken)).status).toBe(401);
     });
 
-    it("draws the grace period line at exactly 30 seconds", async () => {
+    it("draws the grace period line at exactly 5 minutes", async () => {
       const start = new Date("2026-10-31T12:00:00Z");
       const firstLogin = await signIn();
       const secondLogin = await signIn();
@@ -192,14 +192,14 @@ describe("auth sessions", () => {
         refreshSession(db, {
           refreshToken: firstLogin.refreshToken,
           auth: TEST_AUTH,
-          now: new Date(start.getTime() + 30_000),
+          now: new Date(start.getTime() + 300_000),
         }),
       ).resolves.toHaveProperty("refreshToken");
       await expect(
         refreshSession(db, {
           refreshToken: secondLogin.refreshToken,
           auth: TEST_AUTH,
-          now: new Date(start.getTime() + 30_001),
+          now: new Date(start.getTime() + 300_001),
         }),
       ).rejects.toMatchObject({ code: "INVALID_REFRESH_TOKEN" });
     });

@@ -51,6 +51,10 @@ export function createApp({
     defaultJsonParser(request, response, next);
   });
 
+  app.get("/ping", (request, response) => {
+    response.json({ status: "ok" });
+  });
+
   app.get("/health", async (request, response) => {
     try {
       await database.ping();

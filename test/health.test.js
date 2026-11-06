@@ -1,5 +1,5 @@
 import request from "supertest";
-import { afterAll, beforeAll, describe, expect, it } from "vitest";
+import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
 import { createTestApp } from "./helpers/app.js";
 import { createTestDatabase } from "./helpers/database.js";
 
@@ -42,5 +42,19 @@ describe("GET /health", () => {
       status: "error",
       database: "unreachable",
     });
+  });
+});
+
+describe("GET /ping", () => {
+  it("answers without asking the database", async () => {
+    const ping = vi.fn(() => Promise.reject(new Error("must not be called")));
+
+    const response = await request(createTestApp({ database: { ping } })).get(
+      "/ping",
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({ status: "ok" });
+    expect(ping).not.toHaveBeenCalled();
   });
 });

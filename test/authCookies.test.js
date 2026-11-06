@@ -187,7 +187,7 @@ describe("refresh token cookie", () => {
     await refreshWithCookie(first.value);
     await db
       .update(sessions)
-      .set({ rotatedAt: new Date(Date.now() - 31 * 1000) });
+      .set({ rotatedAt: new Date(Date.now() - 301 * 1000) });
 
     const response = await refreshWithCookie(first.value);
 

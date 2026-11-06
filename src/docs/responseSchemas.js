@@ -13,6 +13,10 @@ export const healthResponse = z.strictObject({
   database: z.enum(["ok", "unreachable"]),
 });
 
+export const pingResponse = z.strictObject({
+  status: z.literal("ok"),
+});
+
 export const errorResponse = z.strictObject({
   error: z.strictObject({
     code: z.string(),
@@ -161,6 +165,7 @@ export const exportResponse = z.strictObject({
 
 export const RESPONSE_SCHEMAS = {
   Health: healthResponse,
+  Ping: pingResponse,
   Error: errorResponse,
   Settings: settingsResponse,
   Project: projectResponse,

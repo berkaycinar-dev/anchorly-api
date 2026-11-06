@@ -20,7 +20,7 @@ The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a t
 **Accounts**
 
 - **Sign up and sign in** with email and password. Passwords are hashed with Argon2id.
-- **Short-lived access tokens** (JWT, 15 minutes) and **rotating refresh tokens** (30 days, sliding). Reusing an old refresh token signs that device out.
+- **Short-lived access tokens** (JWT, 15 minutes) and **rotating refresh tokens** (30 days, sliding). Reusing an old refresh token signs that device out, unless it comes back within 5 minutes of the refresh (a lost response, for example); then it is accepted once more.
 - **Web and mobile:** browsers keep the refresh token in an `HttpOnly` cookie; the mobile app receives it in the body (see [Authentication](#authentication)).
 - **Email verification and password reset** with single-use links that expire (24 hours and 1 hour). Resetting the password signs out every device.
 - **Account management:** change the display name and password, list active sessions and sign out one or all other devices, download all data as JSON, delete the account.
@@ -178,6 +178,7 @@ The server refuses to start when a value is missing or invalid, and says which o
 
 | Method and path                                             | Purpose                                                       |
 | ----------------------------------------------------------- | ------------------------------------------------------------- |
+| `GET /ping`                                                 | Check that the API process is awake (no database)             |
 | `GET /health`                                               | Check the API and the database                                |
 | `POST /auth/register`, `POST /auth/login`                   | Create an account or sign in                                  |
 | `POST /auth/refresh`, `POST /auth/logout`                   | Get new tokens, sign out of this session                      |

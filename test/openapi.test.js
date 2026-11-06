@@ -8,6 +8,7 @@ import {
   bulkResultResponse,
   errorResponse,
   healthResponse,
+  pingResponse,
   importResultResponse,
   projectResponse,
   routineCheckResponse,
@@ -23,7 +24,7 @@ import { useTestDatabase } from "./helpers/database.js";
 const HTTP_METHODS = ["get", "post", "put", "patch", "delete"];
 
 function listImplementedOperations() {
-  const operations = ["GET /health"];
+  const operations = ["GET /health", "GET /ping"];
 
   for (const [mountPath, createRouter] of [
     ...PUBLIC_ROUTERS,
@@ -83,6 +84,7 @@ describe("OpenAPI document", () => {
     for (const [path, item] of Object.entries(document.paths)) {
       const isPublic =
         path === "/health" ||
+        path === "/ping" ||
         (path.startsWith("/auth/") &&
           !["/auth/logout", "/auth/resend-verification"].includes(path));
 
@@ -183,6 +185,7 @@ describe("documented response shapes", () => {
 
   it("match what the API really sends", async () => {
     const health = await request(app).get("/health");
+    const ping = await request(app).get("/ping");
     const settings = await api.get("/me/settings");
     const project = await api
       .post("/projects")
@@ -233,6 +236,7 @@ describe("documented response shapes", () => {
     const unauthorized = await request(app).get("/tasks");
 
     expect(() => healthResponse.parse(health.body)).not.toThrow();
+    expect(() => pingResponse.parse(ping.body)).not.toThrow();
     expect(() => settingsResponse.parse(settings.body)).not.toThrow();
     expect(() => projectResponse.parse(project.body)).not.toThrow();
     expect(() => routineResponse.parse(routine.body)).not.toThrow();

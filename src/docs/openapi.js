@@ -175,7 +175,7 @@ function addRateLimitResponses(paths) {
 
   return result;
 }
-const PUBLIC_PATH_PATTERN = /^\/(health|auth\/)/;
+const PUBLIC_PATH_PATTERN = /^\/(health|ping|auth\/)/;
 
 function requireBearerToken(paths) {
   return Object.fromEntries(
@@ -212,7 +212,7 @@ export function buildOpenApiDocument() {
       title: "Anchorly API",
       version: "0.1.0",
       description:
-        "Tasks, routines, projects and settings for Anchorly. Create an account or sign in under /auth, then send the access token as `Authorization: Bearer <token>` to every other endpoint except /health.",
+        "Tasks, routines, projects and settings for Anchorly. Create an account or sign in under /auth, then send the access token as `Authorization: Bearer <token>` to every other endpoint except /health and /ping.",
     },
     tags: [
       { name: "Health" },
@@ -227,6 +227,13 @@ export function buildOpenApiDocument() {
     paths: addRateLimitResponses(
       addClientTimeHeader(
         requireBearerToken({
+          "/ping": {
+            get: operation("Health", "Check that the API process is awake", {
+              responses: {
+                200: json("The API is running", ref("Ping")),
+              },
+            }),
+          },
           "/health": {
             get: operation("Health", "Check the API and the database", {
               responses: {

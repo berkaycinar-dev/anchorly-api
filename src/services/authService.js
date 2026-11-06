@@ -22,7 +22,7 @@ import { consumeEmailToken, issueEmailToken } from "./emailTokenService.js";
 
 const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
-export const REFRESH_REUSE_GRACE_MS = 30 * 1000;
+export const REFRESH_REUSE_GRACE_MS = 5 * 60 * 1000;
 
 function refreshExpiry(now, auth) {
   return new Date(now.getTime() + auth.refreshTokenTtlDays * DAY_IN_MS);
