@@ -76,6 +76,46 @@ describe("resend mailer", () => {
     expect(error.message).toBe("Resend rejected the email with status 422");
     expect(error.message).not.toContain("re_secret");
   });
+
+  it("adds the reason Resend gives to the error", async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 403,
+      json: async () => ({
+        message: "The anchorly.app domain is not verified",
+      }),
+    });
+    const mailer = createResendMailer({
+      apiKey: "re_secret",
+      from: "a@b.co",
+      fetch,
+    });
+
+    const error = await mailer.send(email).catch((caught) => caught);
+
+    expect(error.message).toBe(
+      "Resend rejected the email with status 403: The anchorly.app domain is not verified",
+    );
+  });
+
+  it("still reports the status when the answer is not JSON", async () => {
+    const fetch = vi.fn().mockResolvedValue({
+      ok: false,
+      status: 502,
+      json: async () => {
+        throw new SyntaxError("Unexpected token <");
+      },
+    });
+    const mailer = createResendMailer({
+      apiKey: "re_secret",
+      from: "a@b.co",
+      fetch,
+    });
+
+    const error = await mailer.send(email).catch((caught) => caught);
+
+    expect(error.message).toBe("Resend rejected the email with status 502");
+  });
 });
 
 describe("createMailer", () => {

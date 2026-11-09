@@ -23,4 +23,8 @@ services:
       - key: AUTH_COOKIE_SECURE
         value: "true"
       - key: MAIL_PROVIDER
-        value: console
+        value: resend
+      - key: MAIL_FROM
+        sync: false
+      - key: RESEND_API_KEY
+        sync: false

@@ -1,5 +1,15 @@
 const RESEND_ENDPOINT = "https://api.resend.com/emails";
 
+async function readErrorDetail(response) {
+  try {
+    const body = await response.json();
+
+    return typeof body?.message === "string" ? body.message : null;
+  } catch {
+    return null;
+  }
+}
+
 export function createConsoleMailer({ logger = console } = {}) {
   return {
     async send({ to, subject, text }) {
@@ -32,8 +42,11 @@ export function createResendMailer({ apiKey, from, fetch = globalThis.fetch }) {
       });
 
       if (!response.ok) {
+        const detail = await readErrorDetail(response);
+        const suffix = detail ? `: ${detail}` : "";
+
         throw new Error(
-          `Resend rejected the email with status ${response.status}`,
+          `Resend rejected the email with status ${response.status}${suffix}`,
         );
       }
     },
