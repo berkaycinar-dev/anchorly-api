@@ -11,7 +11,7 @@
 
 The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a task and habit dashboard. It stores each user's tasks, daily routines, projects and settings in PostgreSQL so they can follow the user across devices.
 
-> **Status:** the data API, accounts and sign-in are complete and tested. The frontend is connected, and the API is deployed on Render with PostgreSQL on Neon. Real email delivery comes next.
+> **Status:** the data API, accounts and sign-in are complete and tested. The frontend is connected, and the API is deployed on Render with PostgreSQL on Neon. Email delivery with Resend works in test mode; sending to every user needs a verified domain.
 
 ---
 
@@ -71,7 +71,31 @@ The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a t
 | Browser (default) | `anchorly_refresh` cookie: `HttpOnly`, `Secure`, `SameSite=Strict`, limited to `AUTH_COOKIE_PATH`. It never appears in a response body        |
 | Mobile app        | Send `X-Anchorly-Client: mobile` when signing in. The token comes in the body and goes back in the body of `/auth/refresh` and `/auth/logout` |
 
-Emails link to the frontend (`APP_URL/verify-email#token=…`, `APP_URL/reset-password#token=…`). By default they are printed to the server console instead of being sent.
+Emails link to the frontend (`APP_URL/verify-email#token=…`, `APP_URL/reset-password#token=…`). See [Email delivery](#email-delivery) for how they are sent.
+
+---
+
+## Email delivery
+
+Verification and password reset emails are sent with [Resend](https://resend.com) over HTTPS.
+
+- **Development and tests:** `MAIL_PROVIDER=console` prints each email, with its link, to the server console. Nothing is sent.
+- **Production:** `MAIL_PROVIDER=resend`, with `RESEND_API_KEY` and `MAIL_FROM` set in the host settings (Render). The key is never committed.
+- **Failures are safe:** if Resend rejects an email, sign-up still succeeds and the reason is written to the server log (for example `Resend rejected the email with status 403: ...`). `POST /auth/resend-verification` answers `503 EMAIL_NOT_SENT`.
+
+**Current state:** sending works in Resend's test mode. The test sender `onboarding@resend.dev` delivers only to the address of the Resend account owner. Other people get no email, and the rejection is logged. Users do not need a Resend account; only the owner of the API key does.
+
+**To email every user:**
+
+1. Own a domain.
+2. In Resend, add the domain (region Ireland, the closest to Render in Frankfurt), add the SPF and DKIM DNS records at the domain provider, then verify it.
+3. Set `MAIL_FROM` to an address on that domain, for example `Anchorly <no-reply@your-domain>`. No code change is needed.
+
+**Why not Gmail or plain SMTP:**
+
+- Free Render web services block outbound SMTP ports 25, 465 and 587 (since September 2025), so any SMTP login, Gmail included, times out. A paid instance, from about 7 dollars a month, lifts the block.
+- Gmail would send from a personal address, allows about 500 messages a day, and its app password stops working when the account password changes.
+- Resend works over HTTPS (port 443), which Render does not block.
 
 ---
 
@@ -250,7 +274,7 @@ test/             tests and test helpers
 - Rate limit counters live in memory, so they reset on restart and are not shared between servers. Enough for a single server.
 - No security headers (`helmet`) or CORS list yet. In production the frontend reaches the API through a same-origin proxy, so CORS is not needed.
 - The free hosting plan sleeps after 15 minutes without requests; the first request after a pause can take up to a minute.
-- Emails are printed to the server log (`MAIL_PROVIDER=console`) until a real provider is set up.
+- Emails go out through Resend in test mode: until a domain is verified, only the Resend account owner's address receives them (see [Email delivery](#email-delivery)).
 - Changing the email address is not supported yet.
 - File attachments are accepted and ignored. They will get their own storage.
 
@@ -264,7 +288,7 @@ test/             tests and test helpers
 - [x] Connect the frontend, with offline changes synced later
 - [ ] File attachments in object storage
 - [x] Deployment (Render and Neon, blueprint in `render.yaml`)
-- [ ] Real email delivery
+- [ ] Email delivery to every address (needs a verified domain)
 
 ---
 

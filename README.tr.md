@@ -11,7 +11,7 @@
 
 Görev ve alışkanlık takip uygulaması [Anchorly](https://github.com/berkaycinar-dev/Anchorly)'nin REST API'si. Her kullanıcının görevlerini, günlük rutinlerini, projelerini ve ayarlarını PostgreSQL'de saklar; böylece veriler kullanıcıyla birlikte cihazdan cihaza taşınabilir.
 
-> **Durum:** veri API'si, hesaplar ve giriş tamamlandı ve test edildi. Frontend bağlandı, API Render'da, PostgreSQL ise Neon'da yayında. Sırada gerçek e-posta gönderimi var.
+> **Durum:** veri API'si, hesaplar ve giriş tamamlandı ve test edildi. Frontend bağlandı, API Render'da, PostgreSQL ise Neon'da yayında. Resend ile e-posta gönderimi test modunda çalışıyor; herkese gönderim için doğrulanmış bir alan adı gerekiyor.
 
 ---
 
@@ -71,7 +71,31 @@ Görev ve alışkanlık takip uygulaması [Anchorly](https://github.com/berkayci
 | Tarayıcı (varsayılan) | `anchorly_refresh` cookie'si: `HttpOnly`, `Secure`, `SameSite=Strict`, yalnızca `AUTH_COOKIE_PATH` altında. Hiçbir yanıt gövdesinde görünmez         |
 | Mobil uygulama        | Girişte `X-Anchorly-Client: mobile` başlığını gönder. Token gövdede gelir; `/auth/refresh` ve `/auth/logout` isteklerinde de gövdede geri gönderilir |
 
-E-postalar frontend'e bağlantı verir (`APP_URL/verify-email#token=…`, `APP_URL/reset-password#token=…`). Varsayılan olarak gönderilmez, sunucu konsoluna yazılır.
+E-postalar frontend'e bağlantı verir (`APP_URL/verify-email#token=…`, `APP_URL/reset-password#token=…`). Nasıl gönderildikleri için [E-posta gönderimi](#e-posta-gönderimi) bölümüne bak.
+
+---
+
+## E-posta gönderimi
+
+Doğrulama ve parola sıfırlama e-postaları [Resend](https://resend.com) ile HTTPS üzerinden gönderilir.
+
+- **Geliştirme ve testler:** `MAIL_PROVIDER=console` her e-postayı, bağlantısıyla birlikte, sunucu konsoluna yazar. Hiçbir şey gönderilmez.
+- **Üretim:** `MAIL_PROVIDER=resend`; `RESEND_API_KEY` ve `MAIL_FROM` barındırma ayarlarında (Render) girilir. Anahtar asla commit'lenmez.
+- **Hatalar güvenlidir:** Resend bir e-postayı reddederse kayıt yine de başarılı olur, sebep sunucu günlüğüne yazılır (örneğin `Resend rejected the email with status 403: ...`). `POST /auth/resend-verification` bu durumda `503 EMAIL_NOT_SENT` döner.
+
+**Şu anki durum:** gönderim Resend'in test modunda çalışıyor. Test göndericisi `onboarding@resend.dev` yalnızca Resend hesabının sahibinin adresine e-posta ulaştırır. Başkalarına e-posta gitmez, ret günlüğe yazılır. Kullanıcıların Resend hesabı açması gerekmez; yalnızca API anahtarının sahibinde hesap olması yeter.
+
+**Her kullanıcıya e-posta göndermek için:**
+
+1. Bir alan adın (domain) olsun.
+2. Resend'de alan adını ekle (bölge Ireland, Frankfurt'taki Render'a en yakını), SPF ve DKIM DNS kayıtlarını alan adı sağlayıcısında gir, ardından doğrula.
+3. `MAIL_FROM` değerini bu alan adındaki bir adres yap, örneğin `Anchorly <no-reply@senin-alan-adin>`. Kodda değişiklik gerekmez.
+
+**Neden Gmail ya da düz SMTP değil:**
+
+- Ücretsiz Render web servisleri 25, 465 ve 587 numaralı SMTP portlarına çıkışı engeller (Eylül 2025'ten beri); bu yüzden Gmail dahil her SMTP girişi zaman aşımına düşer. Ücretli bir instance (aylık yaklaşık 7 dolardan başlar) engeli kaldırır.
+- Gmail kişisel bir adresten gönderir, günde yaklaşık 500 mesaja izin verir ve hesap parolası değişince uygulama parolası çalışmaz olur.
+- Resend HTTPS (443 portu) üzerinden çalışır; Render bu portu engellemez.
 
 ---
 
@@ -249,7 +273,7 @@ test/             testler ve test yardımcıları
 - İstek sınırı sayaçları bellekte tutulur; sunucu yeniden başlayınca sıfırlanır ve sunucular arasında paylaşılmaz. Tek sunucu için yeterli.
 - Henüz güvenlik başlıkları (`helmet`) ve CORS listesi yok. Üretimde frontend API'ye aynı kökenli bir vekil üzerinden eriştiği için CORS gerekmiyor.
 - Ücretsiz barındırma planı 15 dakika istek almazsa uykuya geçer; duraklamadan sonraki ilk istek bir dakikaya kadar sürebilir.
-- Gerçek bir sağlayıcı kurulana kadar e-postalar sunucu günlüğüne yazılır (`MAIL_PROVIDER=console`).
+- E-postalar Resend'in test modunda gider: alan adı doğrulanana kadar yalnızca Resend hesabının sahibi olan adres e-posta alır (bkz. [E-posta gönderimi](#e-posta-gönderimi)).
 - E-posta adresi değiştirme henüz yok.
 - Dosya ekleri kabul edilir ama yok sayılır; ayrı bir depolamaya taşınacaklar.
 
@@ -263,7 +287,7 @@ test/             testler ve test yardımcıları
 - [x] Frontend'in bağlanması ve çevrimdışı değişikliklerin eşitlenmesi
 - [ ] Dosya eklerinin nesne depolamaya taşınması
 - [x] Yayına alma (Render ve Neon, şema `render.yaml` içinde)
-- [ ] Gerçek e-posta gönderimi
+- [ ] Her adrese e-posta gönderimi (doğrulanmış alan adı gerekir)
 
 ---
 
