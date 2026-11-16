@@ -9,6 +9,7 @@ import {
 import { readClientTime } from "./middleware/clientTime.js";
 import { createRateLimiters } from "./middleware/rateLimits.js";
 import { createRequireAuth } from "./middleware/requireAuth.js";
+import { createSecurityHeaders } from "./middleware/securityHeaders.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
 
 export function createApp({
@@ -40,6 +41,7 @@ export function createApp({
 
   app.disable("x-powered-by");
   app.set("trust proxy", trustProxy > 0 ? trustProxy : false);
+  app.use(createSecurityHeaders());
   const defaultJsonParser = express.json({ limit: "100kb" });
 
   app.use((request, response, next) => {
