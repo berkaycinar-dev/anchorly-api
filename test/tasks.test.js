@@ -27,6 +27,9 @@ const defaultTask = {
   steps: [],
   repeat: "none",
   repeatGroupId: null,
+  boardStatus: null,
+  important: false,
+  dueTime: "",
   attachments: [],
 };
 
@@ -46,6 +49,9 @@ const fullTask = {
   order: 1761500000000,
   repeat: "daily",
   repeatGroupId,
+  boardStatus: "doing",
+  important: true,
+  dueTime: "09:30",
   attachments: [],
 };
 
@@ -250,6 +256,10 @@ describe("/tasks", () => {
         { ...valid, steps: [{ text: "No id", done: false }] },
         { ...valid, steps: [{ ...step, color: "red" }] },
         { ...valid, color: "blue" },
+        { ...valid, boardStatus: "done" },
+        { ...valid, important: "yes" },
+        { ...valid, dueTime: "9:30" },
+        { ...valid, dueTime: "24:00" },
       ];
 
       for (const body of cases) {

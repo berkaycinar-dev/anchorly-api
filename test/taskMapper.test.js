@@ -15,6 +15,9 @@ const row = {
   position: 1761500000000,
   repeat: "none",
   repeatGroupId: null,
+  boardStatus: null,
+  important: false,
+  dueTime: null,
   createdAt: new Date(),
   updatedAt: new Date(),
   deletedAt: null,
@@ -35,7 +38,25 @@ describe("task mapper", () => {
       order: 1761500000000,
       repeat: "none",
       repeatGroupId: null,
+      boardStatus: null,
+      important: false,
+      dueTime: "",
       attachments: [],
+    });
+  });
+
+  it("keeps the board status, important flag and time as they are", () => {
+    expect(
+      toTask({
+        ...row,
+        boardStatus: "doing",
+        important: true,
+        dueTime: "09:30",
+      }),
+    ).toMatchObject({
+      boardStatus: "doing",
+      important: true,
+      dueTime: "09:30",
     });
   });
 
@@ -53,6 +74,12 @@ describe("task mapper", () => {
         attachments: [{ id: "a" }],
       }),
     ).toEqual({ title: "Write report", date: null, position: 3 });
+  });
+
+  it("stores an empty time as null", () => {
+    expect(
+      toTaskColumns({ boardStatus: "todo", important: true, dueTime: "" }),
+    ).toEqual({ boardStatus: "todo", important: true, dueTime: null });
   });
 
   it("skips fields that were not sent", () => {
