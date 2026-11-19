@@ -19,6 +19,7 @@ function markEmailLimitReached(request, response, next) {
 }
 
 const LIMITER_OPTIONS = {
+  api: { keyGenerator: byUser },
   loginByIp: {},
   loginByEmail: { keyGenerator: byValidatedEmail },
   register: {},
@@ -42,7 +43,7 @@ function passThrough() {
   return middleware;
 }
 
-export function createRateLimiters(rules = {}) {
+export function createRateLimiters(rules = {}, { createStore } = {}) {
   return Object.fromEntries(
     Object.entries(LIMITER_OPTIONS).map(([name, options]) => {
       const rule = rules[name];
@@ -60,6 +61,7 @@ export function createRateLimiters(rules = {}) {
           standardHeaders: "draft-8",
           legacyHeaders: false,
           handler: rejectWithError,
+          ...(createStore && { store: createStore(name) }),
           ...options,
         }),
       ];

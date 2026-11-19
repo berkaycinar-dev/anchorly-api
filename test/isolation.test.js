@@ -37,6 +37,8 @@ const USER_DATA_TABLES = {
   tasks,
 };
 
+const SYSTEM_TABLES = ["rate_limits"];
+
 async function seedVictim(db) {
   await db.insert(users).values(victim);
   await db.insert(userSettings).values({ userId: victim.id, theme: "pink" });
@@ -233,7 +235,7 @@ describe("user isolation", () => {
     );
 
     expect(result.rows.map((row) => row.tablename)).toEqual(
-      Object.keys(USER_DATA_TABLES).sort(),
+      [...Object.keys(USER_DATA_TABLES), ...SYSTEM_TABLES].sort(),
     );
   });
 

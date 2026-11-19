@@ -2,6 +2,7 @@ const MINUTE = 60 * 1000;
 const HOUR = 60 * MINUTE;
 
 export const RATE_LIMITS = Object.freeze({
+  api: { windowMs: 15 * MINUTE, limit: 600 },
   loginByIp: { windowMs: 15 * MINUTE, limit: 10 },
   loginByEmail: { windowMs: 15 * MINUTE, limit: 10 },
   register: { windowMs: HOUR, limit: 5 },

@@ -1,5 +1,6 @@
 export { emailTokens } from "./emailTokens.js";
 export { projects } from "./projects.js";
+export { rateLimits } from "./rateLimits.js";
 export { routineChecks, routines } from "./routines.js";
 export { sessions } from "./sessions.js";
 export { tasks } from "./tasks.js";

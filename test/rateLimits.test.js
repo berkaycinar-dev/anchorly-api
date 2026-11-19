@@ -73,6 +73,7 @@ describe("rate limits", () => {
 
   it("uses the rules from decision 11 by default", async () => {
     expect(RATE_LIMITS).toEqual({
+      api: { windowMs: 15 * 60 * 1000, limit: 600 },
       loginByIp: { windowMs: 15 * 60 * 1000, limit: 10 },
       loginByEmail: { windowMs: 15 * 60 * 1000, limit: 10 },
       register: { windowMs: 60 * 60 * 1000, limit: 5 },
@@ -326,29 +327,117 @@ describe("rate limits", () => {
     });
   });
 
+  it("keeps counting after the server restarts", async () => {
+    const rules = { loginByIp: twoPerMinute };
+    await register(appWith({}), "ali@example.com");
+
+    const before = await statuses(2, () =>
+      login(appWith(rules), "ali@example.com", "wrong password"),
+    );
+    const afterRestart = await login(
+      appWith(rules),
+      "ali@example.com",
+      "wrong password",
+    );
+
+    expect(before).toEqual([401, 401]);
+    expect(afterRestart.status).toBe(429);
+  });
+
+  describe("data endpoints", () => {
+    function signedIn(app, session) {
+      return (method, path) => {
+        const pending = request(app)[method](path);
+
+        return pending.set("Authorization", `Bearer ${session.accessToken}`);
+      };
+    }
+
+    it("limits requests per user", async () => {
+      const app = appWith({ api: twoPerMinute });
+      const ali = signedIn(app, await register(app, "ali@example.com"));
+      const veli = signedIn(app, await register(app, "veli@example.com"));
+
+      const results = await statuses(3, () => ali("get", "/tasks"));
+
+      expect(results).toEqual([200, 200, 429]);
+      expectTooManyRequests(await ali("get", "/tasks"), "api");
+      expect((await veli("get", "/tasks")).status).toBe(200);
+    });
+
+    it("shares one count across every data endpoint", async () => {
+      const app = appWith({ api: { windowMs: 60 * 1000, limit: 6 } });
+      const ali = signedIn(app, await register(app, "ali@example.com"));
+      const paths = [
+        "/tasks",
+        "/projects",
+        "/routines",
+        "/routines/checks",
+        "/me/settings",
+        "/me",
+      ];
+
+      const results = await statuses(paths.length, (index) =>
+        ali("get", paths[index]),
+      );
+
+      expect(results).toEqual(Array(6).fill(200));
+      expect((await ali("get", "/me/sessions")).status).toBe(429);
+    });
+
+    it("answers requests without a valid token with 401", async () => {
+      const app = appWith({ api: { windowMs: 60 * 1000, limit: 1 } });
+
+      const results = await statuses(3, () => request(app).get("/tasks"));
+
+      expect(results).toEqual([401, 401, 401]);
+    });
+
+    it("does not count sign-in requests", async () => {
+      const app = appWith({ api: { windowMs: 60 * 1000, limit: 1 } });
+      const session = await register(app, "ali@example.com");
+
+      await statuses(3, () => login(app, "ali@example.com"));
+
+      expect((await signedIn(app, session)("get", "/tasks")).status).toBe(200);
+    });
+  });
+
   it("documents 429 on every limited operation and nowhere else", () => {
     const document = buildOpenApiDocument();
     const limited = [];
+    const signedIn = [];
 
     for (const [path, item] of Object.entries(document.paths)) {
       for (const [method, operation] of Object.entries(item)) {
+        const name = `${method.toUpperCase()} ${path}`;
+
         if (operation.responses?.[429]) {
-          limited.push(`${method.toUpperCase()} ${path}`);
+          limited.push(name);
+        }
+
+        if (
+          !path.startsWith("/auth/") &&
+          operation.security?.some((scheme) => scheme.bearerAuth)
+        ) {
+          signedIn.push(name);
         }
       }
     }
 
+    expect(signedIn).toContain("GET /tasks");
     expect(limited.sort()).toEqual(
       [
-        "POST /auth/register",
-        "POST /auth/login",
-        "POST /auth/refresh",
-        "POST /auth/verify-email",
-        "POST /auth/resend-verification",
-        "POST /auth/forgot-password",
-        "POST /auth/reset-password",
-        "POST /me/password",
-        "DELETE /me",
+        ...new Set([
+          "POST /auth/register",
+          "POST /auth/login",
+          "POST /auth/refresh",
+          "POST /auth/verify-email",
+          "POST /auth/resend-verification",
+          "POST /auth/forgot-password",
+          "POST /auth/reset-password",
+          ...signedIn,
+        ]),
       ].sort(),
     );
   });

@@ -155,7 +155,7 @@ export const RATE_LIMITED_OPERATIONS = [
 
 const tooManyRequests = {
   description:
-    "Too many attempts (TOO_MANY_REQUESTS). Retry-After says how many seconds to wait",
+    "Too many requests (TOO_MANY_REQUESTS). Retry-After says how many seconds to wait",
   headers: {
     "Retry-After": { schema: { type: "integer" } },
     RateLimit: { schema: { type: "string" } },
@@ -196,6 +196,7 @@ function requireBearerToken(paths) {
               "The access token is missing, invalid, expired or revoked (UNAUTHORIZED)",
               ref("Error"),
             ),
+            429: tooManyRequests,
           },
         };
       }

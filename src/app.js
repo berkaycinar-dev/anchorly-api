@@ -2,6 +2,7 @@ import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { RATE_LIMITS } from "./constants/rateLimits.js";
 import { buildOpenApiDocument } from "./docs/openapi.js";
+import { createPostgresRateLimitStore } from "./lib/rateLimitStore.js";
 import {
   createErrorHandler,
   notFoundHandler,
@@ -36,7 +37,10 @@ export function createApp({
 
   const app = express();
   const requireAuth = createRequireAuth({ db: database.db, auth });
-  const limiters = createRateLimiters(rateLimits);
+  const limiters = createRateLimiters(rateLimits, {
+    createStore: (name) =>
+      createPostgresRateLimitStore({ db: database.db, prefix: name }),
+  });
   const openApiDocument = buildOpenApiDocument();
 
   app.disable("x-powered-by");
@@ -91,6 +95,7 @@ export function createApp({
     app.use(
       path,
       requireAuth,
+      limiters.api,
       readClientTime(),
       createRouter({ db: database.db, auth, limiters }),
     );

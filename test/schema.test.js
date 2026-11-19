@@ -48,6 +48,7 @@ describe("database schema", () => {
     expect(result.rows.map((row) => row.table_name)).toEqual([
       "email_tokens",
       "projects",
+      "rate_limits",
       "routine_checks",
       "routines",
       "sessions",
