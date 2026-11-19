@@ -52,3 +52,7 @@ export const loginSchema = z.strictObject({
   password: z.string().min(1).max(128),
   deviceName: deviceNameSchema.optional(),
 });
+
+export const confirmEmailChangeSchema = z.strictObject({
+  token: z.string().min(1).max(512),
+});

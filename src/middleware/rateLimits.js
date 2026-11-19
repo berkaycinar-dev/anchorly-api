@@ -34,6 +34,8 @@ const LIMITER_OPTIONS = {
   },
   resetPassword: {},
   passwordCheck: { keyGenerator: byUser, skipSuccessfulRequests: true },
+  emailChange: { keyGenerator: byUser },
+  confirmEmailChange: {},
 };
 
 function passThrough() {

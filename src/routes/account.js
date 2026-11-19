@@ -1,8 +1,10 @@
 import { Router } from "express";
+import { emailNotSentError } from "../lib/httpError.js";
 import { clearRefreshCookie } from "../lib/refreshCookie.js";
 import { createRequireVerifiedEmail } from "../middleware/requireVerifiedEmail.js";
 import { validate } from "../middleware/validate.js";
 import {
+  changeEmailSchema,
   changePasswordSchema,
   deleteAccountSchema,
   sessionIdParams,
@@ -12,8 +14,10 @@ import {
   changePassword,
   deleteAccount,
   getMe,
+  requestEmailChange,
   updateMe,
 } from "../services/accountService.js";
+import { sendEmailChangeLink } from "../services/accountMail.js";
 import { exportFileName, exportUserData } from "../services/exportService.js";
 import {
   listActiveSessions,
@@ -24,6 +28,9 @@ import {
 export function createAccountRouter({
   db,
   auth,
+  mailer,
+  appUrl,
+  logger = console,
   limiters,
   rejectBreachedPassword,
 }) {
@@ -72,6 +79,37 @@ export function createAccountRouter({
       });
 
       response.status(204).end();
+    },
+  );
+
+  router.post(
+    "/email",
+    limiters.passwordCheck,
+    limiters.emailChange,
+    validate({ body: changeEmailSchema }),
+    async (request, response) => {
+      const { newEmail, password } = request.validated.body;
+      const { user, language, token } = await requestEmailChange(db, {
+        userId: request.user.id,
+        newEmail,
+        password,
+      });
+
+      try {
+        await sendEmailChangeLink({
+          mailer,
+          appUrl,
+          user,
+          newEmail,
+          language,
+          token,
+        });
+      } catch (error) {
+        logger.error(error);
+        throw emailNotSentError();
+      }
+
+      response.status(202).json({ pendingEmail: newEmail });
     },
   );
 

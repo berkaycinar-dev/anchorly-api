@@ -6,6 +6,8 @@ import {
 } from "../src/mail/mailers.js";
 import {
   buildActionLink,
+  changeEmailMessage,
+  emailChangedMessage,
   resetPasswordMessage,
   verifyEmailMessage,
 } from "../src/mail/messages.js";
@@ -197,5 +199,46 @@ describe("email messages", () => {
     expect(message.html).toContain(
       "&lt;img src=x onerror=&quot;alert(1)&quot;&gt;",
     );
+  });
+
+  it("sends the email change link to the confirm page", () => {
+    const message = changeEmailMessage({
+      ...messageOptions,
+      to: "new@example.com",
+      language: "en",
+    });
+
+    expect(message.to).toBe("new@example.com");
+    expect(message.subject).toBe("Anchorly: confirm your new email address");
+    expect(message.text).toContain(
+      "http://localhost:5173/confirm-email#token=abc_DEF-123",
+    );
+    expect(message.text).toContain("24 hours");
+  });
+
+  it("tells the previous address about the change without a link", () => {
+    const message = emailChangedMessage({
+      to: "old@example.com",
+      displayName: "Ali",
+      language: "tr",
+      newEmail: "new@example.com",
+    });
+
+    expect(message.to).toBe("old@example.com");
+    expect(message.subject).toBe("Anchorly: e-posta adresin değişti");
+    expect(message.text).toContain("new@example.com");
+    expect(message.text).not.toMatch(/https?:\/\//);
+  });
+
+  it("escapes the new address in the change notice", () => {
+    const message = emailChangedMessage({
+      to: "old@example.com",
+      displayName: null,
+      language: "en",
+      newEmail: "<b>x</b>@example.com",
+    });
+
+    expect(message.html).not.toContain("<b>");
+    expect(message.html).toContain("&lt;b&gt;x&lt;/b&gt;@example.com");
   });
 });

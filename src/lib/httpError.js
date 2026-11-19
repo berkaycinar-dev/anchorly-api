@@ -123,3 +123,11 @@ export function passwordBreachedError() {
     "This password has appeared in a data breach. Choose a different password",
   );
 }
+
+export function emailUnchangedError() {
+  return new HttpError(
+    400,
+    "EMAIL_UNCHANGED",
+    "The new email address is the same as the current one",
+  );
+}

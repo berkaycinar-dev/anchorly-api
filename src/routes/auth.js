@@ -13,6 +13,7 @@ import {
 import { describeUserAgent } from "../lib/userAgent.js";
 import { validate } from "../middleware/validate.js";
 import {
+  confirmEmailChangeSchema,
   forgotPasswordSchema,
   loginSchema,
   refreshSchema,
@@ -31,9 +32,11 @@ import {
   verifyEmail,
 } from "../services/authService.js";
 import {
+  sendEmailChangedNotice,
   sendPasswordResetEmail,
   sendVerificationEmail,
 } from "../services/accountMail.js";
+import { confirmEmailChange } from "../services/accountService.js";
 
 function withDeviceName(request) {
   const body = request.validated.body;
@@ -154,6 +157,23 @@ export function createAuthRouter({
       const user = await verifyEmail(db, {
         token: request.validated.body.token,
       });
+
+      response.json({ user });
+    },
+  );
+
+  router.post(
+    "/confirm-email-change",
+    limiters.confirmEmailChange,
+    validate({ body: confirmEmailChangeSchema }),
+    async (request, response) => {
+      const { user, previousEmail, language } = await confirmEmailChange(db, {
+        token: request.validated.body.token,
+      });
+
+      runInBackground(() =>
+        sendEmailChangedNotice({ mailer, user, previousEmail, language }),
+      );
 
       response.json({ user });
     },

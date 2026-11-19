@@ -84,6 +84,8 @@ describe("rate limits", () => {
       forgotPasswordByEmail: { windowMs: 60 * 60 * 1000, limit: 3 },
       resetPassword: { windowMs: 15 * 60 * 1000, limit: 10 },
       passwordCheck: { windowMs: 15 * 60 * 1000, limit: 10 },
+      emailChange: { windowMs: 60 * 60 * 1000, limit: 5 },
+      confirmEmailChange: { windowMs: 15 * 60 * 1000, limit: 10 },
     });
 
     const app = createApp({
@@ -344,6 +346,46 @@ describe("rate limits", () => {
     expect(afterRestart.status).toBe(429);
   });
 
+  describe("email change", () => {
+    function changeEmail(app, session, newEmail) {
+      return request(app)
+        .post("/me/email")
+        .set("Authorization", `Bearer ${session.accessToken}`)
+        .send({ newEmail, password });
+    }
+
+    it("limits change requests per user", async () => {
+      const app = appWith({ emailChange: twoPerMinute });
+      const ali = await register(app, "ali@example.com");
+      const veli = await register(app, "veli@example.com");
+
+      const results = await statuses(3, (index) =>
+        changeEmail(app, ali, `ali${index}@example.com`),
+      );
+
+      expect(results).toEqual([202, 202, 429]);
+      expectTooManyRequests(
+        await changeEmail(app, ali, "ali9@example.com"),
+        "emailChange",
+      );
+      expect((await changeEmail(app, veli, "veli1@example.com")).status).toBe(
+        202,
+      );
+    });
+
+    it("limits confirmations per address", async () => {
+      const app = appWith({ confirmEmailChange: twoPerMinute });
+
+      const results = await statuses(3, () =>
+        request(app)
+          .post("/auth/confirm-email-change")
+          .send({ token: "not-a-real-token" }),
+      );
+
+      expect(results).toEqual([400, 400, 429]);
+    });
+  });
+
   describe("data endpoints", () => {
     function signedIn(app, session) {
       return (method, path) => {
@@ -436,6 +478,7 @@ describe("rate limits", () => {
           "POST /auth/resend-verification",
           "POST /auth/forgot-password",
           "POST /auth/reset-password",
+          "POST /auth/confirm-email-change",
           ...signedIn,
         ]),
       ].sort(),

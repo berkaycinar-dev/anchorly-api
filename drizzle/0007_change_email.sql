@@ -1,0 +1,2 @@
+ALTER TABLE "email_tokens" DROP CONSTRAINT "email_tokens_purpose_check";--> statement-breakpoint
+ALTER TABLE "email_tokens" ADD CONSTRAINT "email_tokens_purpose_check" CHECK ("email_tokens"."purpose" in ('verify_email', 'reset_password', 'change_email'));

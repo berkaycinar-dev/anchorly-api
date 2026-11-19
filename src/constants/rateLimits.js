@@ -13,4 +13,6 @@ export const RATE_LIMITS = Object.freeze({
   forgotPasswordByEmail: { windowMs: HOUR, limit: 3 },
   resetPassword: { windowMs: 15 * MINUTE, limit: 10 },
   passwordCheck: { windowMs: 15 * MINUTE, limit: 10 },
+  emailChange: { windowMs: HOUR, limit: 5 },
+  confirmEmailChange: { windowMs: 15 * MINUTE, limit: 10 },
 });

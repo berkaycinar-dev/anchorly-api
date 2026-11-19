@@ -6,6 +6,7 @@ import {
   forgotPasswordSchema,
   resetPasswordSchema,
   verifyEmailSchema,
+  confirmEmailChangeSchema,
 } from "../schemas/auth.js";
 import {
   createProjectSchema,
@@ -17,6 +18,7 @@ import {
   updateRoutineSchema,
 } from "../schemas/routines.js";
 import {
+  changeEmailSchema,
   changePasswordSchema,
   deleteAccountSchema,
   updateMeSchema,
@@ -149,7 +151,9 @@ export const RATE_LIMITED_OPERATIONS = [
   "POST /auth/resend-verification",
   "POST /auth/forgot-password",
   "POST /auth/reset-password",
+  "POST /auth/confirm-email-change",
   "POST /me/password",
+  "POST /me/email",
   "DELETE /me",
 ];
 
@@ -308,7 +312,29 @@ export function buildOpenApiDocument() {
                 responses: {
                   200: json("The email address is verified", ref("UserResult")),
                   400: json(
-                    "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), the new password has appeared in a data breach (PASSWORD_BREACHED), or the body is invalid",
+                    "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), or the body is invalid",
+                    ref("Error"),
+                  ),
+                },
+              },
+            ),
+          },
+          "/auth/confirm-email-change": {
+            post: operation(
+              "Auth",
+              "Confirm a new email address with the token from the email link",
+              {
+                description:
+                  "Changes the email address, marks it as verified and tells the previous address about the change. Other sessions stay signed in.",
+                requestBody: body(confirmEmailChangeSchema),
+                responses: {
+                  200: json("The email address is changed", ref("UserResult")),
+                  400: json(
+                    "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), or the body is invalid",
+                    ref("Error"),
+                  ),
+                  409: json(
+                    "Another account started using this email address (EMAIL_TAKEN)",
                     ref("Error"),
                   ),
                 },
@@ -360,7 +386,7 @@ export function buildOpenApiDocument() {
                 responses: {
                   204: noContent,
                   400: json(
-                    "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), or the body is invalid",
+                    "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), the new password has appeared in a data breach (PASSWORD_BREACHED), or the body is invalid",
                     ref("Error"),
                   ),
                 },
@@ -416,6 +442,34 @@ export function buildOpenApiDocument() {
                 204: noContent,
                 400: json(
                   "The current password is incorrect (INVALID_CURRENT_PASSWORD), the account has no password yet (PASSWORD_NOT_SET), the new password has appeared in a data breach (PASSWORD_BREACHED), or the body is invalid",
+                  ref("Error"),
+                ),
+              },
+            }),
+          },
+          "/me/email": {
+            post: operation("Account", "Start changing the email address", {
+              description:
+                "Needs the current password. Sends a confirmation link to the new address; the address changes only after the link is opened.",
+              requestBody: body(changeEmailSchema),
+              responses: {
+                202: json("The confirmation link is sent", {
+                  type: "object",
+                  required: ["pendingEmail"],
+                  properties: {
+                    pendingEmail: { type: "string", format: "email" },
+                  },
+                }),
+                400: json(
+                  "The current password is incorrect (INVALID_CURRENT_PASSWORD), the account has no password yet (PASSWORD_NOT_SET), the new address is the current one (EMAIL_UNCHANGED), or the body is invalid",
+                  ref("Error"),
+                ),
+                409: json(
+                  "Another account uses this email address (EMAIL_TAKEN)",
+                  ref("Error"),
+                ),
+                503: json(
+                  "The email could not be sent (EMAIL_NOT_SENT)",
                   ref("Error"),
                 ),
               },

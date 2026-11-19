@@ -2,6 +2,7 @@ import { eq } from "drizzle-orm";
 import request from "supertest";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { users } from "../src/db/schema/index.js";
+import { buildOpenApiDocument } from "../src/docs/openapi.js";
 import { createPwnedPasswordChecker } from "../src/lib/pwnedPasswords.js";
 import {
   createTestApp,
@@ -181,5 +182,25 @@ describe("breached password check", () => {
       expect(response.status).toBe(400);
       expect(response.body.error.code).toBe("INVALID_CURRENT_PASSWORD");
     });
+  });
+
+  it("documents the error on exactly the operations that check passwords", () => {
+    const documented = [];
+
+    for (const [path, item] of Object.entries(buildOpenApiDocument().paths)) {
+      for (const [method, operation] of Object.entries(item)) {
+        if (
+          operation.responses?.[400]?.description.includes("PASSWORD_BREACHED")
+        ) {
+          documented.push(`${method.toUpperCase()} ${path}`);
+        }
+      }
+    }
+
+    expect(documented.sort()).toEqual([
+      "POST /auth/register",
+      "POST /auth/reset-password",
+      "POST /me/password",
+    ]);
   });
 });

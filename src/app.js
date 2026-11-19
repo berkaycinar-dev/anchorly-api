@@ -106,6 +106,9 @@ export function createApp({
       createRouter({
         db: database.db,
         auth,
+        mailer,
+        appUrl,
+        logger,
         limiters,
         rejectBreachedPassword,
       }),
