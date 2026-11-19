@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { REPEAT_RULES, TASK_CATEGORIES } from "../constants/tasks.js";
+import {
+  BOARD_STATUSES,
+  DUE_TIME_PATTERN,
+  REPEAT_RULES,
+  TASK_CATEGORIES,
+} from "../constants/tasks.js";
 
 const COMPLETED_AT_MESSAGE = "An unfinished task cannot have a completion date";
 
@@ -21,6 +26,9 @@ const taskFields = {
   order: z.number().int().min(0).max(Number.MAX_SAFE_INTEGER),
   repeat: z.enum(REPEAT_RULES),
   repeatGroupId: z.uuid().nullable(),
+  boardStatus: z.enum(BOARD_STATUSES).nullable(),
+  important: z.boolean(),
+  dueTime: z.union([z.string().regex(DUE_TIME_PATTERN), z.literal("")]),
 };
 
 const ignoredFields = {
@@ -46,6 +54,9 @@ export const createTaskSchema = z
     steps: taskFields.steps.default([]),
     repeat: taskFields.repeat.default("none"),
     repeatGroupId: taskFields.repeatGroupId.default(null),
+    boardStatus: taskFields.boardStatus.default(null),
+    important: taskFields.important.default(false),
+    dueTime: taskFields.dueTime.default(""),
     ...ignoredFields,
   })
   .refine((task) => task.completed || task.completedAt === null, {

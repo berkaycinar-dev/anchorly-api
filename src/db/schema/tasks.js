@@ -13,6 +13,7 @@ import {
   uuid,
 } from "drizzle-orm/pg-core";
 import {
+  BOARD_STATUSES,
   DEFAULT_TASK_CATEGORY,
   REPEAT_RULES,
   TASK_CATEGORIES,
@@ -39,6 +40,9 @@ export const tasks = pgTable(
     position: bigint({ mode: "number" }).notNull(),
     repeat: text().notNull().default("none"),
     repeatGroupId: uuid(),
+    boardStatus: text(),
+    important: boolean().notNull().default(false),
+    dueTime: text(),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),
@@ -58,6 +62,14 @@ export const tasks = pgTable(
     check(
       "tasks_repeat_check",
       sql`${table.repeat} in (${sqlList(REPEAT_RULES)})`,
+    ),
+    check(
+      "tasks_board_status_check",
+      sql`${table.boardStatus} in (${sqlList(BOARD_STATUSES)})`,
+    ),
+    check(
+      "tasks_due_time_check",
+      sql`${table.dueTime} ~ '^([01][0-9]|2[0-3]):[0-5][0-9]$'`,
     ),
     check(
       "tasks_steps_array_check",

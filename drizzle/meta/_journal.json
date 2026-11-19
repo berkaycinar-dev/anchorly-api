@@ -57,6 +57,13 @@
       "when": 1795089963763,
       "tag": "0007_change_email",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1795096565104,
+      "tag": "0008_task_sync_fields",
+      "breakpoints": true
     }
   ]
 }

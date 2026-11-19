@@ -12,6 +12,9 @@ export function toTask(row) {
     order: row.position,
     repeat: row.repeat,
     repeatGroupId: row.repeatGroupId,
+    boardStatus: row.boardStatus,
+    important: row.important,
+    dueTime: row.dueTime ?? "",
     attachments: [],
   };
 }
@@ -28,7 +31,12 @@ const FIELD_TO_COLUMN = {
   order: "position",
   repeat: "repeat",
   repeatGroupId: "repeatGroupId",
+  boardStatus: "boardStatus",
+  important: "important",
+  dueTime: "dueTime",
 };
+
+const EMPTY_STRING_AS_NULL = ["date", "dueTime"];
 
 export function toTaskColumns(fields) {
   const columns = {};
@@ -39,7 +47,9 @@ export function toTaskColumns(fields) {
     }
 
     columns[column] =
-      field === "date" && fields.date === "" ? null : fields[field];
+      EMPTY_STRING_AS_NULL.includes(field) && fields[field] === ""
+        ? null
+        : fields[field];
   }
 
   return columns;

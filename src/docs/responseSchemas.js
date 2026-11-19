@@ -6,7 +6,12 @@ import {
   THEMES,
   WEEK_START_DAYS,
 } from "../constants/settings.js";
-import { REPEAT_RULES, TASK_CATEGORIES } from "../constants/tasks.js";
+import {
+  BOARD_STATUSES,
+  DUE_TIME_PATTERN,
+  REPEAT_RULES,
+  TASK_CATEGORIES,
+} from "../constants/tasks.js";
 
 export const healthResponse = z.strictObject({
   status: z.enum(["ok", "error"]),
@@ -72,6 +77,9 @@ export const taskResponse = z.strictObject({
   order: z.number().int(),
   repeat: z.enum(REPEAT_RULES),
   repeatGroupId: z.uuid().nullable(),
+  boardStatus: z.enum(BOARD_STATUSES).nullable(),
+  important: z.boolean(),
+  dueTime: z.union([z.string().regex(DUE_TIME_PATTERN), z.literal("")]),
   attachments: z
     .array(z.never())
     .max(0)
