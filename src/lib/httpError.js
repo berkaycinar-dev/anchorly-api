@@ -115,3 +115,11 @@ export function validationError(details) {
     details,
   );
 }
+
+export function passwordBreachedError() {
+  return new HttpError(
+    400,
+    "PASSWORD_BREACHED",
+    "This password has appeared in a data breach. Choose a different password",
+  );
+}

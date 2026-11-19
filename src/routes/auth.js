@@ -67,6 +67,7 @@ export function createAuthRouter({
   appUrl,
   logger = console,
   limiters,
+  rejectBreachedPassword,
   runInBackground,
 }) {
   const router = Router();
@@ -75,6 +76,7 @@ export function createAuthRouter({
     "/register",
     limiters.register,
     validate({ body: registerSchema }),
+    rejectBreachedPassword("password"),
     async (request, response) => {
       const { result, verification } = await registerUser(
         db,
@@ -205,6 +207,7 @@ export function createAuthRouter({
     "/reset-password",
     limiters.resetPassword,
     validate({ body: resetPasswordSchema }),
+    rejectBreachedPassword("password"),
     async (request, response) => {
       await resetPassword(db, request.validated.body);
 

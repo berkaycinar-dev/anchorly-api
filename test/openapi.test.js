@@ -34,6 +34,7 @@ function listImplementedOperations() {
       db: null,
       requireAuth: () => {},
       limiters: createRateLimiters(),
+      rejectBreachedPassword: () => () => {},
     });
 
     for (const layer of router.stack.filter((item) => item.route)) {

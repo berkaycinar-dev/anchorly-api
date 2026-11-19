@@ -2,6 +2,7 @@ import express from "express";
 import swaggerUi from "swagger-ui-express";
 import { RATE_LIMITS } from "./constants/rateLimits.js";
 import { buildOpenApiDocument } from "./docs/openapi.js";
+import { createPwnedPasswordChecker } from "./lib/pwnedPasswords.js";
 import { createPostgresRateLimitStore } from "./lib/rateLimitStore.js";
 import {
   createErrorHandler,
@@ -9,6 +10,7 @@ import {
 } from "./middleware/errorHandlers.js";
 import { readClientTime } from "./middleware/clientTime.js";
 import { createRateLimiters } from "./middleware/rateLimits.js";
+import { createBreachedPasswordGuard } from "./middleware/breachedPassword.js";
 import { createRequireAuth } from "./middleware/requireAuth.js";
 import { createSecurityHeaders } from "./middleware/securityHeaders.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
@@ -21,6 +23,7 @@ export function createApp({
   appUrl,
   rateLimits = RATE_LIMITS,
   trustProxy = 0,
+  isPasswordBreached = createPwnedPasswordChecker({ logger }),
   runInBackground = (task) => {
     task().catch((error) => logger.error(error));
   },
@@ -41,6 +44,8 @@ export function createApp({
     createStore: (name) =>
       createPostgresRateLimitStore({ db: database.db, prefix: name }),
   });
+  const rejectBreachedPassword =
+    createBreachedPasswordGuard(isPasswordBreached);
   const openApiDocument = buildOpenApiDocument();
 
   app.disable("x-powered-by");
@@ -86,6 +91,7 @@ export function createApp({
         appUrl,
         logger,
         limiters,
+        rejectBreachedPassword,
         runInBackground,
       }),
     );
@@ -97,7 +103,12 @@ export function createApp({
       requireAuth,
       limiters.api,
       readClientTime(),
-      createRouter({ db: database.db, auth, limiters }),
+      createRouter({
+        db: database.db,
+        auth,
+        limiters,
+        rejectBreachedPassword,
+      }),
     );
   }
 

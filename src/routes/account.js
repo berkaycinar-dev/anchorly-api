@@ -21,7 +21,12 @@ import {
   revokeOwnSession,
 } from "../services/sessionsService.js";
 
-export function createAccountRouter({ db, auth, limiters }) {
+export function createAccountRouter({
+  db,
+  auth,
+  limiters,
+  rejectBreachedPassword,
+}) {
   const router = Router();
   const requireVerifiedEmail = createRequireVerifiedEmail({ db });
 
@@ -56,8 +61,9 @@ export function createAccountRouter({ db, auth, limiters }) {
 
   router.post(
     "/password",
-    limiters.passwordCheck,
     validate({ body: changePasswordSchema }),
+    rejectBreachedPassword("newPassword"),
+    limiters.passwordCheck,
     async (request, response) => {
       await changePassword(db, {
         userId: request.user.id,

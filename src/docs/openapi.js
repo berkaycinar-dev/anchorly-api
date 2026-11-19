@@ -251,7 +251,10 @@ export function buildOpenApiDocument() {
                 201: withSetCookie(
                   json("Account created and signed in", ref("AuthSession")),
                 ),
-                400: errors[400],
+                400: json(
+                  "The password has appeared in a data breach (PASSWORD_BREACHED), or the body is invalid",
+                  ref("Error"),
+                ),
                 409: json(
                   "An account with this email already exists (EMAIL_TAKEN)",
                   ref("Error"),
@@ -305,7 +308,7 @@ export function buildOpenApiDocument() {
                 responses: {
                   200: json("The email address is verified", ref("UserResult")),
                   400: json(
-                    "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), or the body is invalid",
+                    "The link is invalid, expired or already used (INVALID_EMAIL_TOKEN), the new password has appeared in a data breach (PASSWORD_BREACHED), or the body is invalid",
                     ref("Error"),
                   ),
                 },
@@ -412,7 +415,7 @@ export function buildOpenApiDocument() {
               responses: {
                 204: noContent,
                 400: json(
-                  "The current password is incorrect (INVALID_CURRENT_PASSWORD), the account has no password yet (PASSWORD_NOT_SET), or the body is invalid",
+                  "The current password is incorrect (INVALID_CURRENT_PASSWORD), the account has no password yet (PASSWORD_NOT_SET), the new password has appeared in a data breach (PASSWORD_BREACHED), or the body is invalid",
                   ref("Error"),
                 ),
               },
