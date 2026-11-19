@@ -6,7 +6,9 @@ import {
   loadMailConfig,
 } from "./config.js";
 import { createDatabase } from "./db/client.js";
+import { startCleanupSchedule } from "./jobs/cleanupSchedule.js";
 import { createMailer } from "./mail/mailers.js";
+import { runCleanup } from "./services/cleanupService.js";
 
 loadEnvFile();
 
@@ -28,7 +30,10 @@ const server = createApp({
   console.log(`Trusted proxies: ${config.trustProxy}`);
 });
 
+const cleanup = startCleanupSchedule({ run: () => runCleanup(database.db) });
+
 function shutdown() {
+  cleanup.stop();
   server.close(async () => {
     await database.close();
     process.exit(0);
