@@ -23,8 +23,9 @@ Görev ve alışkanlık takip uygulaması [Anchorly](https://github.com/berkayci
 - **Kısa ömürlü erişim token'ları** (JWT, 15 dakika) ve **yenilenen refresh token'lar** (30 gün, her kullanımda uzar). Eski bir refresh token tekrar kullanılırsa o cihazın oturumu kapanır.
 - **Web ve mobil:** tarayıcılar refresh token'ı `HttpOnly` bir cookie'de tutar; mobil uygulama gövdede alır (bkz. [Kimlik doğrulama](#kimlik-doğrulama)).
 - **E-posta doğrulama ve parola sıfırlama:** tek kullanımlık, süresi dolan bağlantılarla (24 saat ve 1 saat). Parola sıfırlanınca bütün cihazlardaki oturumlar kapanır.
-- **Hesap yönetimi:** görünen adı ve parolayı değiştirme, aktif oturumları listeleme ve tek bir oturumu ya da diğer bütün cihazları kapatma, bütün verileri JSON olarak indirme, hesabı silme.
-- **İstek sınırları:** giriş, kayıt, token ve parola uç noktalarında; adres başına ve gerektiği yerde e-posta ya da kullanıcı başına sayılır.
+- **Hesap yönetimi:** görünen adı, parolayı ve e-posta adresini değiştirme (yeni adrese giden bağlantıyla onaylanır; eski adrese bilgi verilir), aktif oturumları listeleme ve tek bir oturumu ya da diğer bütün cihazları kapatma, bütün verileri JSON olarak indirme, hesabı silme.
+- **Sızmış parolalar reddedilir:** yeni parolalar k-anonimlikle [Have I Been Pwned](https://haveibeenpwned.com/Passwords) listesinde aranır; sunucudan yalnızca SHA-1 özetinin ilk 5 karakteri çıkar. Servise ulaşılamazsa kontrol atlanır ve günlüğe yazılır.
+- **İstek sınırları:** giriş, kayıt, token, parola ve e-posta uç noktalarında; adres başına ve gerektiği yerde e-posta ya da kullanıcı başına sayılır. Ayrıca bütün veri uç noktalarında kullanıcı başına 15 dakikada 600 istek. Sayaçlar PostgreSQL'de tutulur, sunucu yeniden başlayınca sıfırlanmaz.
 
 **Veriler**
 
@@ -33,12 +34,13 @@ Görev ve alışkanlık takip uygulaması [Anchorly](https://github.com/berkayci
 - **Rutinler:** ekran sırası sunucuda tutulur; her rutin ve gün için bir işaret saklanır.
 - **Görevler:** frontend'deki biçimin aynısı (tarihsiz görev için `date: ""`, `order`, adımlar). Sürükle-bırak sıralaması ve ekleme, güncelleme ve silme işlemlerini tek transaction'da çalıştıran toplu işlem uç noktası.
 - **İstemcinin ürettiği ID'ler:** frontend UUID'leri çevrimdışıyken de üretir. Aynı ekleme isteği iki kez gelirse kopya oluşmaz, mevcut kayıt döner.
-- **Yumuşak silme:** silinen satırlar `deleted_at` zamanıyla saklanır; cihazlar arası eşitlemeye hazır.
+- **Yumuşak silme:** silinen satırlar `deleted_at` zamanıyla 30 gün saklanır; sonra günlük temizlik onları, süresi dolmuş oturumlar, e-posta bağlantıları ve istek sınırı sayaçlarıyla birlikte kalıcı olarak siler.
 
 **Her yerde**
 
 - **Sıkı doğrulama:** her istek gövdesi Zod ile denetlenir. Bilinmeyen alanlar reddedilir; yazım hataları sessizce kaybolmaz.
 - **Tek hata biçimi:** her hata `{ "error": { "code", "message", "details" } }` biçiminde döner. İç hataların ayrıntısı dışarı sızmaz.
+- **Güvenlik başlıkları:** her yanıtta `helmet`. API yanıtları sıkı bir `default-src 'none'` politikası alır; `/docs` Swagger arayüzü yüklenebilsin diye varsayılan politikada kalır.
 - **Etkileşimli belge:** `/docs` adresinde OpenAPI 3. İstekleri doğrulayan Zod şemalarının aynısından üretilir.
 
 ---
@@ -71,7 +73,7 @@ Görev ve alışkanlık takip uygulaması [Anchorly](https://github.com/berkayci
 | Tarayıcı (varsayılan) | `anchorly_refresh` cookie'si: `HttpOnly`, `Secure`, `SameSite=Strict`, yalnızca `AUTH_COOKIE_PATH` altında. Hiçbir yanıt gövdesinde görünmez         |
 | Mobil uygulama        | Girişte `X-Anchorly-Client: mobile` başlığını gönder. Token gövdede gelir; `/auth/refresh` ve `/auth/logout` isteklerinde de gövdede geri gönderilir |
 
-E-postalar frontend'e bağlantı verir (`APP_URL/verify-email#token=…`, `APP_URL/reset-password#token=…`). Nasıl gönderildikleri için [E-posta gönderimi](#e-posta-gönderimi) bölümüne bak.
+E-postalar frontend'e bağlantı verir (`APP_URL/verify-email#token=…`, `APP_URL/reset-password#token=…`, `APP_URL/confirm-email#token=…`). Nasıl gönderildikleri için [E-posta gönderimi](#e-posta-gönderimi) bölümüne bak.
 
 ---
 
@@ -157,7 +159,7 @@ npm run dev
 
 http://localhost:3000/docs adresini aç, `POST /auth/login` ile `dev@anchorly.local` / `devpassword` olarak giriş yap, dönen `accessToken` değerini **Authorize** düğmesine yapıştır ve diğer uç noktaları dene.
 
-Çalışan bir sunucuyu baştan sona kontrol etmek için ikinci bir terminalde `npm run smoke` çalıştır (ya da `npm run smoke -- https://api-adresin.example.com`). Betik geçici bir hesap açar; giriş, veriler, oturumlar ve çıkış adımlarından geçer ve hesabı yeniden siler.
+Çalışan bir sunucuyu baştan sona kontrol etmek için ikinci bir terminalde `npm run smoke` çalıştır (ya da `npm run smoke -- https://api-adresin.example.com`). API'nin kendi adresini ver (örneğin Render adresi), frontend'deki `/api` vekilini değil. Betik geçici bir hesap açar; giriş, veriler, oturumlar ve çıkış adımlarından geçer ve hesabı yeniden siler.
 
 ### Ortam değişkenleri
 
@@ -182,19 +184,20 @@ Bir değer eksik ya da geçersizse sunucu açılmaz ve hangisi olduğunu söyler
 
 ## Komutlar
 
-| Komut                 | Ne yapar                                                                                     |
-| --------------------- | -------------------------------------------------------------------------------------------- |
-| `npm run dev`         | Sunucuyu başlatır, dosya değişince yeniden başlatır                                          |
-| `npm start`           | Sunucuyu başlatır                                                                            |
-| `npm run db:generate` | `src/db/schema` içindeki değişikliklerden migration üretir                                   |
-| `npm run db:migrate`  | Bekleyen migration'ları `.env`'deki veritabanına uygular                                     |
-| `npm run db:seed`     | Geliştirme kullanıcısını ekler (`dev@anchorly.local` / `devpassword`, e-postası doğrulanmış) |
-| `npm run db:create`   | `DATABASE_URL`'deki veritabanını oluşturur (CI kullanır)                                     |
-| `npm run lint`        | ESLint'i çalıştırır                                                                          |
-| `npm run format`      | Projeyi Prettier ile biçimlendirir                                                           |
-| `npm run smoke`       | Çalışan bir sunucuya karşı uçtan uca kontrol yapar                                           |
-| `npm test`            | Bütün testleri bir kez çalıştırır                                                            |
-| `npm run test:watch`  | Testleri izleme modunda çalıştırır                                                           |
+| Komut                 | Ne yapar                                                                                      |
+| --------------------- | --------------------------------------------------------------------------------------------- |
+| `npm run dev`         | Sunucuyu başlatır, dosya değişince yeniden başlatır                                           |
+| `npm start`           | Sunucuyu başlatır                                                                             |
+| `npm run db:generate` | `src/db/schema` içindeki değişikliklerden migration üretir                                    |
+| `npm run db:migrate`  | Bekleyen migration'ları `.env`'deki veritabanına uygular                                      |
+| `npm run db:seed`     | Geliştirme kullanıcısını ekler (`dev@anchorly.local` / `devpassword`, e-postası doğrulanmış)  |
+| `npm run db:create`   | `DATABASE_URL`'deki veritabanını oluşturur (CI kullanır)                                      |
+| `npm run db:cleanup`  | Eski silinmiş satırları ve süresi dolmuş kayıtları hemen temizler (sunucu bunu her gün yapar) |
+| `npm run lint`        | ESLint'i çalıştırır                                                                           |
+| `npm run format`      | Projeyi Prettier ile biçimlendirir                                                            |
+| `npm run smoke`       | Çalışan bir sunucuya karşı uçtan uca kontrol yapar                                            |
+| `npm test`            | Bütün testleri bir kez çalıştırır                                                             |
+| `npm run test:watch`  | Testleri izleme modunda çalıştırır                                                            |
 
 ---
 
@@ -209,6 +212,8 @@ Bir değer eksik ya da geçersizse sunucu açılmaz ve hangisi olduğunu söyler
 | `POST /auth/forgot-password`, `POST /auth/reset-password`   | Sıfırlama bağlantısı ister, yeni parola belirler                         |
 | `GET`, `PATCH`, `DELETE /me`                                | Hesabı okur, görünen adı değiştirir, hesabı siler                        |
 | `POST /me/password`                                         | Parolayı değiştirir ve diğer cihazlardan çıkış yapar                     |
+| `POST /me/email`                                            | Yeni e-posta adresine onay bağlantısı gönderir                           |
+| `POST /auth/confirm-email-change`                           | Bağlantıdaki token'la yeni e-posta adresine geçer                        |
 | `GET`, `DELETE /me/sessions`                                | Aktif oturumları listeler, diğer bütün cihazlardan çıkış yapar           |
 | `DELETE /me/sessions/{id}`                                  | Tek bir oturumu kapatır                                                  |
 | `GET /me/export`                                            | Bütün verileri JSON dosyası olarak indirir (doğrulanmış e-posta gerekir) |
@@ -235,8 +240,9 @@ Her alanı ve hatayı içeren tam tarif `/docs` ve `/openapi.json` adreslerinde.
 - `test/requireAuth.test.js` belgelenen her korumalı uç noktaya token'sız istek gönderir.
 - `test/openapi.test.js`, belgede eksik bir route olduğunda ya da bir yanıt belgelenen biçimden saptığında başarısız olur.
 - `test/rateLimits.test.js` ve `test/trustProxy.test.js` her sınırı ve bir istemcinin sahte `X-Forwarded-For` başlığıyla sınırları atlatamadığını kontrol eder.
+- `test/securityHeaders.test.js`, `test/breachedPassword.test.js`, `test/emailChange.test.js` ve `test/cleanupService.test.js` güvenlik işlerini kapsar: başlıklar, sızmış parolalar, e-posta değiştirme ve temizlik.
 - `test/smoke.test.js`, `scripts/smoke.js` betiğini test sürecinde açılan gerçek bir sunucuya karşı çalıştırır.
-- GitHub Actions her push'ta lint, biçim kontrolü ve bütün testleri PostgreSQL 17'ye karşı çalıştırır.
+- GitHub Actions her push'ta üretim bağımlılıklarını tarar, lint, biçim kontrolü ve bütün testleri PostgreSQL 17'ye karşı çalıştırır. Dependabot her hafta güncelleme PR'ları açar.
 
 ---
 
@@ -251,6 +257,7 @@ src/
 │   ├── migrations.js
 │   └── seedDevUser.js
 ├── docs/         OpenAPI belgesi ve yanıt şemaları
+├── jobs/         günlük temizlik takvimi
 ├── lib/          hatalar, parolalar, token'lar, cookie'ler, cihaz adları
 ├── mail/         e-posta göndericileri (konsol, Resend) ve mesaj metinleri (TR, EN)
 ├── mappers/      veritabanı satırı ↔ frontend görev biçimi
@@ -262,7 +269,7 @@ src/
 ├── config.js     ortam değişkenleri
 └── server.js     sunucuyu başlatır
 drizzle/          üretilen SQL migration'ları
-scripts/          migrate, seed, veritabanı oluşturma, duman testi
+scripts/          migrate, seed, veritabanı oluşturma, temizlik, duman testi
 test/             testler ve test yardımcıları
 ```
 
@@ -270,11 +277,12 @@ test/             testler ve test yardımcıları
 
 ## Bilinen sınırlamalar
 
-- İstek sınırı sayaçları bellekte tutulur; sunucu yeniden başlayınca sıfırlanır ve sunucular arasında paylaşılmaz. Tek sunucu için yeterli.
-- Henüz güvenlik başlıkları (`helmet`) ve CORS listesi yok. Üretimde frontend API'ye aynı kökenli bir vekil üzerinden eriştiği için CORS gerekmiyor.
+- CORS listesi yok. Üretimde frontend API'ye aynı kökenli bir vekil üzerinden eriştiği için gerekmiyor; mobil uygulama için gerekecek.
+- Have I Been Pwned'e ulaşılamazsa sızmış parola kontrolü parolayı geçirir.
+- 30 günden uzun çevrimdışı kalan bir cihaz, başka bir cihazda silinmiş bir kaydı geri getirebilir; o zamana kadar silinmiş satır temizlenmiş olur.
 - Ücretsiz barındırma planı 15 dakika istek almazsa uykuya geçer; duraklamadan sonraki ilk istek bir dakikaya kadar sürebilir.
 - E-postalar Resend'in test modunda gider: alan adı doğrulanana kadar yalnızca Resend hesabının sahibi olan adres e-posta alır (bkz. [E-posta gönderimi](#e-posta-gönderimi)).
-- E-posta adresi değiştirme henüz yok.
+- E-posta değişince eski adrese giden bilgi e-postasında henüz geri alma bağlantısı ve destek adresi yok.
 - Dosya ekleri kabul edilir ama yok sayılır; ayrı bir depolamaya taşınacaklar.
 
 ---
@@ -287,6 +295,7 @@ test/             testler ve test yardımcıları
 - [x] Frontend'in bağlanması ve çevrimdışı değişikliklerin eşitlenmesi
 - [ ] Dosya eklerinin nesne depolamaya taşınması
 - [x] Yayına alma (Render ve Neon, şema `render.yaml` içinde)
+- [x] Güvenlik sıkılaştırması: başlıklar, genel istek sınırı, kalıcı sayaçlar, sızmış parola kontrolü, e-posta değiştirme, günlük temizlik, bağımlılık taraması
 - [ ] Her adrese e-posta gönderimi (doğrulanmış alan adı gerekir)
 
 ---

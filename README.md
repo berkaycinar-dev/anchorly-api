@@ -23,8 +23,9 @@ The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a t
 - **Short-lived access tokens** (JWT, 15 minutes) and **rotating refresh tokens** (30 days, sliding). Reusing an old refresh token signs that device out, unless it comes back within 5 minutes of the refresh (a lost response, for example); then it is accepted once more.
 - **Web and mobile:** browsers keep the refresh token in an `HttpOnly` cookie; the mobile app receives it in the body (see [Authentication](#authentication)).
 - **Email verification and password reset** with single-use links that expire (24 hours and 1 hour). Resetting the password signs out every device.
-- **Account management:** change the display name and password, list active sessions and sign out one or all other devices, download all data as JSON, delete the account.
-- **Rate limits** on sign-in, sign-up, token and password endpoints, counted per address and, where it matters, per email or per user.
+- **Account management:** change the display name, password and email address (confirmed with a link sent to the new address; the old address is told about the change), list active sessions and sign out one or all other devices, download all data as JSON, delete the account.
+- **Breached passwords are refused:** new passwords are checked against [Have I Been Pwned](https://haveibeenpwned.com/Passwords) with k-anonymity, so only the first 5 characters of the SHA-1 hash leave the server. If the service cannot be reached, the check is skipped and logged.
+- **Rate limits** on sign-in, sign-up, token, password and email endpoints, counted per address and, where it matters, per email or per user, plus 600 requests per 15 minutes per user on every data endpoint. Counters are stored in PostgreSQL, so they survive restarts.
 
 **Data**
 
@@ -33,12 +34,13 @@ The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a t
 - **Routines:** kept in display order by the server, with a check per routine and day.
 - **Tasks:** the same shape the frontend uses (`date: ""` for no date, `order`, steps), with drag-and-drop ordering and a bulk endpoint that runs create, update and delete operations in one transaction.
 - **Client-generated ids:** the frontend creates UUIDs offline. Sending the same create request twice returns the existing record instead of a duplicate.
-- **Soft delete:** deleted rows keep a `deleted_at` time, ready for syncing between devices.
+- **Soft delete:** deleted rows keep a `deleted_at` time for 30 days, then a daily cleanup removes them for good, together with expired sessions, email links and rate limit counters.
 
 **Everywhere**
 
 - **Strict validation:** every request body is checked with Zod. Unknown fields are rejected, so a typo never disappears silently.
 - **One error shape:** `{ "error": { "code", "message", "details" } }` for every failure. Internal errors never leak details.
+- **Security headers:** `helmet` on every response. API responses get a strict `default-src 'none'` policy; `/docs` keeps the default one so Swagger UI can load.
 - **Interactive documentation:** OpenAPI 3 at `/docs`, generated from the same Zod schemas that validate requests.
 
 ---
@@ -71,7 +73,7 @@ The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a t
 | Browser (default) | `anchorly_refresh` cookie: `HttpOnly`, `Secure`, `SameSite=Strict`, limited to `AUTH_COOKIE_PATH`. It never appears in a response body        |
 | Mobile app        | Send `X-Anchorly-Client: mobile` when signing in. The token comes in the body and goes back in the body of `/auth/refresh` and `/auth/logout` |
 
-Emails link to the frontend (`APP_URL/verify-email#token=…`, `APP_URL/reset-password#token=…`). See [Email delivery](#email-delivery) for how they are sent.
+Emails link to the frontend (`APP_URL/verify-email#token=…`, `APP_URL/reset-password#token=…`, `APP_URL/confirm-email#token=…`). See [Email delivery](#email-delivery) for how they are sent.
 
 ---
 
@@ -157,7 +159,7 @@ npm run dev
 
 Open http://localhost:3000/docs, sign in with `POST /auth/login` as `dev@anchorly.local` / `devpassword`, then paste the `accessToken` into **Authorize** to try the other endpoints.
 
-To check a running server from end to end, run `npm run smoke` in a second terminal (or `npm run smoke -- https://your-api.example.com`). It creates a temporary account, goes through sign-in, data, sessions and sign-out, and deletes the account again.
+To check a running server from end to end, run `npm run smoke` in a second terminal (or `npm run smoke -- https://your-api.example.com`). Give the API's own address, such as the Render URL, not the frontend's `/api` proxy. It creates a temporary account, goes through sign-in, data, sessions and sign-out, and deletes the account again.
 
 ### Environment variables
 
@@ -190,6 +192,7 @@ The server refuses to start when a value is missing or invalid, and says which o
 | `npm run db:migrate`  | Apply pending migrations to the database in `.env`                              |
 | `npm run db:seed`     | Add the development user (`dev@anchorly.local` / `devpassword`, email verified) |
 | `npm run db:create`   | Create the database in `DATABASE_URL` (used by CI)                              |
+| `npm run db:cleanup`  | Remove old deleted rows and expired records now (the server also does it daily) |
 | `npm run lint`        | Run ESLint                                                                      |
 | `npm run format`      | Format the project with Prettier                                                |
 | `npm run smoke`       | Run an end-to-end check against a running server                                |
@@ -210,6 +213,8 @@ The server refuses to start when a value is missing or invalid, and says which o
 | `POST /auth/forgot-password`, `POST /auth/reset-password`   | Ask for a reset link, choose a new password                   |
 | `GET`, `PATCH`, `DELETE /me`                                | Read the account, change the display name, delete the account |
 | `POST /me/password`                                         | Change the password and sign out other devices                |
+| `POST /me/email`                                            | Send a confirmation link to a new email address               |
+| `POST /auth/confirm-email-change`                           | Switch to the new email address with the link's token         |
 | `GET`, `DELETE /me/sessions`                                | List active sessions, sign out every other device             |
 | `DELETE /me/sessions/{id}`                                  | Sign out one session                                          |
 | `GET /me/export`                                            | Download all data as a JSON file (verified email required)    |
@@ -236,8 +241,9 @@ The full description, with every field and error, is at `/docs` and `/openapi.js
 - `test/requireAuth.test.js` sends a request without a token to every documented protected endpoint.
 - `test/openapi.test.js` fails when a route is missing from the documentation, or when a response no longer matches its documented shape.
 - `test/rateLimits.test.js` and `test/trustProxy.test.js` check every limit, and that a client cannot get around them with a forged `X-Forwarded-For` header.
+- `test/securityHeaders.test.js`, `test/breachedPassword.test.js`, `test/emailChange.test.js` and `test/cleanupService.test.js` cover the security work: headers, breached passwords, email change and cleanup.
 - `test/smoke.test.js` runs `scripts/smoke.js` against a real server in the test process.
-- GitHub Actions runs lint, formatting and all tests against PostgreSQL 17 on every push.
+- GitHub Actions runs a production dependency audit, lint, formatting and all tests against PostgreSQL 17 on every push. Dependabot opens weekly update pull requests.
 
 ---
 
@@ -252,6 +258,7 @@ src/
 │   ├── migrations.js
 │   └── seedDevUser.js
 ├── docs/         OpenAPI document and response schemas
+├── jobs/         the daily cleanup schedule
 ├── lib/          errors, passwords, tokens, cookies, user agent names
 ├── mail/         email senders (console, Resend) and message texts (TR, EN)
 ├── mappers/      database row ↔ frontend task shape
@@ -263,7 +270,7 @@ src/
 ├── config.js     environment variables
 └── server.js     starts the server
 drizzle/          generated SQL migrations
-scripts/          migrate, seed, create database, smoke test
+scripts/          migrate, seed, create database, cleanup, smoke test
 test/             tests and test helpers
 ```
 
@@ -271,11 +278,12 @@ test/             tests and test helpers
 
 ## Known limitations
 
-- Rate limit counters live in memory, so they reset on restart and are not shared between servers. Enough for a single server.
-- No security headers (`helmet`) or CORS list yet. In production the frontend reaches the API through a same-origin proxy, so CORS is not needed.
+- No CORS list. In production the frontend reaches the API through a same-origin proxy, so CORS is not needed; the mobile app will need one.
+- The breached password check lets a password through when Have I Been Pwned cannot be reached.
+- A device that stays offline for more than 30 days can bring back a record that was deleted on another device, because the deleted row is gone by then.
 - The free hosting plan sleeps after 15 minutes without requests; the first request after a pause can take up to a minute.
 - Emails go out through Resend in test mode: until a domain is verified, only the Resend account owner's address receives them (see [Email delivery](#email-delivery)).
-- Changing the email address is not supported yet.
+- The email sent to the old address after an email change has no undo link and no support address yet.
 - File attachments are accepted and ignored. They will get their own storage.
 
 ---
@@ -288,6 +296,7 @@ test/             tests and test helpers
 - [x] Connect the frontend, with offline changes synced later
 - [ ] File attachments in object storage
 - [x] Deployment (Render and Neon, blueprint in `render.yaml`)
+- [x] Security hardening: headers, a general rate limit, persistent counters, breached password check, email change, daily cleanup, dependency audit
 - [ ] Email delivery to every address (needs a verified domain)
 
 ---
