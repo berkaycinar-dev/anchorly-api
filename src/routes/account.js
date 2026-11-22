@@ -4,6 +4,7 @@ import { clearRefreshCookie } from "../lib/refreshCookie.js";
 import { createRequireVerifiedEmail } from "../middleware/requireVerifiedEmail.js";
 import { validate } from "../middleware/validate.js";
 import {
+  acceptTermsSchema,
   changeEmailSchema,
   changePasswordSchema,
   deleteAccountSchema,
@@ -11,6 +12,7 @@ import {
   updateMeSchema,
 } from "../schemas/account.js";
 import {
+  acceptTerms,
   changePassword,
   deleteAccount,
   getMe,
@@ -63,6 +65,16 @@ export function createAccountRouter({
 
       clearRefreshCookie(response, auth);
       response.status(204).end();
+    },
+  );
+
+  router.post(
+    "/terms",
+    validate({ body: acceptTermsSchema }),
+    async (request, response) => {
+      const user = await acceptTerms(db, { userId: request.user.id });
+
+      response.json({ user });
     },
   );
 

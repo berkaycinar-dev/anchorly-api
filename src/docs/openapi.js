@@ -18,6 +18,7 @@ import {
   updateRoutineSchema,
 } from "../schemas/routines.js";
 import {
+  acceptTermsSchema,
   changeEmailSchema,
   changePasswordSchema,
   deleteAccountSchema,
@@ -256,7 +257,7 @@ export function buildOpenApiDocument() {
                   json("Account created and signed in", ref("AuthSession")),
                 ),
                 400: json(
-                  "The password has appeared in a data breach (PASSWORD_BREACHED), or the body is invalid",
+                  "The password has appeared in a data breach (PASSWORD_BREACHED), or the body is invalid (for example acceptTerms is not true)",
                   ref("Error"),
                 ),
                 409: json(
@@ -432,6 +433,17 @@ export function buildOpenApiDocument() {
                 },
               },
             ),
+          },
+          "/me/terms": {
+            post: operation("Account", "Accept the current terms of use", {
+              description:
+                "Records the current terms version and the time of acceptance. Registration records it too; this is for users whose acceptance is missing or out of date (termsAccepted: false).",
+              requestBody: body(acceptTermsSchema),
+              responses: {
+                200: json("The user after accepting", ref("UserResult")),
+                400: errors[400],
+              },
+            }),
           },
           "/me/password": {
             post: operation("Account", "Change the password", {

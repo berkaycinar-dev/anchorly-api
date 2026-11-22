@@ -72,7 +72,7 @@ export async function runSmokeTest(baseUrl, { log = console.log } = {}) {
 
     await step("register", async () => {
       const response = await call("POST", "/auth/register", {
-        body: { email, password, deviceName: "Smoke test" },
+        body: { email, password, deviceName: "Smoke test", acceptTerms: true },
       });
 
       expectStatus("register", response, 201);

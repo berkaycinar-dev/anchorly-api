@@ -125,6 +125,11 @@ export const userResponse = z.strictObject({
   email: z.email(),
   displayName: z.string().nullable(),
   emailVerifiedAt: z.iso.datetime().nullable(),
+  termsAccepted: z
+    .boolean()
+    .describe(
+      "False when the user has not accepted the current terms of use; the app asks again",
+    ),
   createdAt: z.iso.datetime(),
 });
 

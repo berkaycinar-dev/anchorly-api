@@ -1,5 +1,6 @@
 import { and, eq, isNull, ne } from "drizzle-orm";
 import { CHANGE_EMAIL_TTL_HOURS } from "../constants/emailTokens.js";
+import { TERMS_VERSION } from "../constants/legal.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   emailTokens,
@@ -37,6 +38,20 @@ export async function updateMe(db, userId, { displayName }) {
   const [updated] = await db
     .update(users)
     .set({ displayName })
+    .where(eq(users.id, userId))
+    .returning();
+
+  if (!updated) {
+    throw notFoundError("User not found");
+  }
+
+  return toPublicUser(updated);
+}
+
+export async function acceptTerms(db, { userId, now = new Date() }) {
+  const [updated] = await db
+    .update(users)
+    .set({ termsVersion: TERMS_VERSION, termsAcceptedAt: now })
     .where(eq(users.id, userId))
     .returning();
 
