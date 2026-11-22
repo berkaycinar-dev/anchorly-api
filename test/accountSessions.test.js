@@ -22,7 +22,7 @@ describe("/me/sessions", () => {
     const response = await request(app)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send({ email, password, deviceName: "Laptop" });
+      .send({ email, password, deviceName: "Laptop", acceptTerms: true });
 
     return response.body;
   }

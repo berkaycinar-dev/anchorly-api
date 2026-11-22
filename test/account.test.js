@@ -34,7 +34,7 @@ describe("account", () => {
     const response = await request(app)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send({ email, password, displayName: "Ali" });
+      .send({ email, password, displayName: "Ali", acceptTerms: true });
 
     return response.body;
   }
@@ -238,7 +238,7 @@ describe("account", () => {
         await request(app)
           .post("/auth/register")
           .set("X-Anchorly-Client", "mobile")
-          .send({ email: "ayse@example.com", password })
+          .send({ email: "ayse@example.com", password, acceptTerms: true })
       ).body;
 
       await changePassword(ali.accessToken, {
@@ -398,7 +398,7 @@ describe("account", () => {
         await request(app)
           .post("/auth/register")
           .set("X-Anchorly-Client", "mobile")
-          .send({ email: "ayse@example.com", password })
+          .send({ email: "ayse@example.com", password, acceptTerms: true })
       ).body;
       await as(ayse.accessToken)
         .post("/projects")

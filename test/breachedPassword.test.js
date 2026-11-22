@@ -36,7 +36,7 @@ describe("breached password check", () => {
     return request(app)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send({ email, password: chosenPassword });
+      .send({ email, password: chosenPassword, acceptTerms: true });
   }
 
   function login(app, chosenPassword) {

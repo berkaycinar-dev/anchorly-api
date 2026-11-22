@@ -34,7 +34,7 @@ describe("password reset", () => {
     registration = await request(app)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send({ email, password, displayName: "Ali" });
+      .send({ email, password, displayName: "Ali", acceptTerms: true });
     app.locals.mailer.sent.length = 0;
     await db.delete(emailTokens);
   });

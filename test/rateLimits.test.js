@@ -28,7 +28,7 @@ describe("rate limits", () => {
     const response = await request(app)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send({ email, password });
+      .send({ email, password, acceptTerms: true });
 
     return response.body;
   }
@@ -163,7 +163,11 @@ describe("rate limits", () => {
       request(app)
         .post("/auth/register")
         .set("X-Anchorly-Client", "mobile")
-        .send({ email: `user${index}@example.com`, password }),
+        .send({
+          email: `user${index}@example.com`,
+          password,
+          acceptTerms: true,
+        }),
     );
 
     expect(results).toEqual([201, 201, 429]);
