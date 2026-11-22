@@ -25,6 +25,7 @@ The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a t
 - **Email verification and password reset** with single-use links that expire (24 hours and 1 hour). Resetting the password signs out every device.
 - **Account management:** change the display name, password and email address (confirmed with a link sent to the new address; the old address is told about the change), list active sessions and sign out one or all other devices, download all data as JSON, delete the account.
 - **Breached passwords are refused:** new passwords are checked against [Have I Been Pwned](https://haveibeenpwned.com/Passwords) with k-anonymity, so only the first 5 characters of the SHA-1 hash leave the server. If the service cannot be reached, the check is skipped and logged.
+- **Terms acceptance:** sign-up requires `acceptTerms: true` and stores the server's terms version (`src/constants/legal.js`) with the time. The user object has `termsAccepted`; when the version changes it turns `false` and `POST /me/terms` records the new acceptance.
 - **Rate limits** on sign-in, sign-up, token, password and email endpoints, counted per address and, where it matters, per email or per user, plus 600 requests per 15 minutes per user on every data endpoint. Counters are stored in PostgreSQL, so they survive restarts.
 
 **Data**
@@ -214,6 +215,7 @@ The server refuses to start when a value is missing or invalid, and says which o
 | `GET`, `PATCH`, `DELETE /me`                                | Read the account, change the display name, delete the account |
 | `POST /me/password`                                         | Change the password and sign out other devices                |
 | `POST /me/email`                                            | Send a confirmation link to a new email address               |
+| `POST /me/terms`                                            | Accept the current terms of use                               |
 | `POST /auth/confirm-email-change`                           | Switch to the new email address with the link's token         |
 | `GET`, `DELETE /me/sessions`                                | List active sessions, sign out every other device             |
 | `DELETE /me/sessions/{id}`                                  | Sign out one session                                          |
@@ -241,7 +243,7 @@ The full description, with every field and error, is at `/docs` and `/openapi.js
 - `test/requireAuth.test.js` sends a request without a token to every documented protected endpoint.
 - `test/openapi.test.js` fails when a route is missing from the documentation, or when a response no longer matches its documented shape.
 - `test/rateLimits.test.js` and `test/trustProxy.test.js` check every limit, and that a client cannot get around them with a forged `X-Forwarded-For` header.
-- `test/securityHeaders.test.js`, `test/breachedPassword.test.js`, `test/emailChange.test.js` and `test/cleanupService.test.js` cover the security work: headers, breached passwords, email change and cleanup.
+- `test/securityHeaders.test.js`, `test/breachedPassword.test.js`, `test/emailChange.test.js` and `test/cleanupService.test.js` cover the security work: headers, breached passwords, email change and cleanup. `test/terms.test.js` covers terms acceptance on sign-up and `POST /me/terms`.
 - `test/smoke.test.js` runs `scripts/smoke.js` against a real server in the test process.
 - GitHub Actions runs a production dependency audit, lint, formatting and all tests against PostgreSQL 17 on every push. Dependabot opens weekly update pull requests.
 
@@ -297,6 +299,7 @@ test/             tests and test helpers
 - [ ] File attachments in object storage
 - [x] Deployment (Render and Neon, blueprint in `render.yaml`)
 - [x] Security hardening: headers, a general rate limit, persistent counters, breached password check, email change, daily cleanup, dependency audit
+- [x] Terms acceptance recorded on sign-up, with a new acceptance when the terms change
 - [ ] Email delivery to every address (needs a verified domain)
 
 ---

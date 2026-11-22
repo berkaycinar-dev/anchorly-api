@@ -25,6 +25,7 @@ Görev ve alışkanlık takip uygulaması [Anchorly](https://github.com/berkayci
 - **E-posta doğrulama ve parola sıfırlama:** tek kullanımlık, süresi dolan bağlantılarla (24 saat ve 1 saat). Parola sıfırlanınca bütün cihazlardaki oturumlar kapanır.
 - **Hesap yönetimi:** görünen adı, parolayı ve e-posta adresini değiştirme (yeni adrese giden bağlantıyla onaylanır; eski adrese bilgi verilir), aktif oturumları listeleme ve tek bir oturumu ya da diğer bütün cihazları kapatma, bütün verileri JSON olarak indirme, hesabı silme.
 - **Sızmış parolalar reddedilir:** yeni parolalar k-anonimlikle [Have I Been Pwned](https://haveibeenpwned.com/Passwords) listesinde aranır; sunucudan yalnızca SHA-1 özetinin ilk 5 karakteri çıkar. Servise ulaşılamazsa kontrol atlanır ve günlüğe yazılır.
+- **Koşulların kabulü:** kayıt `acceptTerms: true` ister ve sunucudaki koşul sürümünü (`src/constants/legal.js`) zamanıyla birlikte kaydeder. Kullanıcı nesnesinde `termsAccepted` vardır; sürüm değişince `false` olur ve `POST /me/terms` yeni kabulü kaydeder.
 - **İstek sınırları:** giriş, kayıt, token, parola ve e-posta uç noktalarında; adres başına ve gerektiği yerde e-posta ya da kullanıcı başına sayılır. Ayrıca bütün veri uç noktalarında kullanıcı başına 15 dakikada 600 istek. Sayaçlar PostgreSQL'de tutulur, sunucu yeniden başlayınca sıfırlanmaz.
 
 **Veriler**
@@ -213,6 +214,7 @@ Bir değer eksik ya da geçersizse sunucu açılmaz ve hangisi olduğunu söyler
 | `GET`, `PATCH`, `DELETE /me`                                | Hesabı okur, görünen adı değiştirir, hesabı siler                        |
 | `POST /me/password`                                         | Parolayı değiştirir ve diğer cihazlardan çıkış yapar                     |
 | `POST /me/email`                                            | Yeni e-posta adresine onay bağlantısı gönderir                           |
+| `POST /me/terms`                                            | Güncel kullanım koşullarını kabul eder                                   |
 | `POST /auth/confirm-email-change`                           | Bağlantıdaki token'la yeni e-posta adresine geçer                        |
 | `GET`, `DELETE /me/sessions`                                | Aktif oturumları listeler, diğer bütün cihazlardan çıkış yapar           |
 | `DELETE /me/sessions/{id}`                                  | Tek bir oturumu kapatır                                                  |
@@ -240,7 +242,7 @@ Her alanı ve hatayı içeren tam tarif `/docs` ve `/openapi.json` adreslerinde.
 - `test/requireAuth.test.js` belgelenen her korumalı uç noktaya token'sız istek gönderir.
 - `test/openapi.test.js`, belgede eksik bir route olduğunda ya da bir yanıt belgelenen biçimden saptığında başarısız olur.
 - `test/rateLimits.test.js` ve `test/trustProxy.test.js` her sınırı ve bir istemcinin sahte `X-Forwarded-For` başlığıyla sınırları atlatamadığını kontrol eder.
-- `test/securityHeaders.test.js`, `test/breachedPassword.test.js`, `test/emailChange.test.js` ve `test/cleanupService.test.js` güvenlik işlerini kapsar: başlıklar, sızmış parolalar, e-posta değiştirme ve temizlik.
+- `test/securityHeaders.test.js`, `test/breachedPassword.test.js`, `test/emailChange.test.js` ve `test/cleanupService.test.js` güvenlik işlerini kapsar: başlıklar, sızmış parolalar, e-posta değiştirme ve temizlik. `test/terms.test.js` kayıttaki onayı ve `POST /me/terms`'i kapsar.
 - `test/smoke.test.js`, `scripts/smoke.js` betiğini test sürecinde açılan gerçek bir sunucuya karşı çalıştırır.
 - GitHub Actions her push'ta üretim bağımlılıklarını tarar, lint, biçim kontrolü ve bütün testleri PostgreSQL 17'ye karşı çalıştırır. Dependabot her hafta güncelleme PR'ları açar.
 
@@ -296,6 +298,7 @@ test/             testler ve test yardımcıları
 - [ ] Dosya eklerinin nesne depolamaya taşınması
 - [x] Yayına alma (Render ve Neon, şema `render.yaml` içinde)
 - [x] Güvenlik sıkılaştırması: başlıklar, genel istek sınırı, kalıcı sayaçlar, sızmış parola kontrolü, e-posta değiştirme, günlük temizlik, bağımlılık taraması
+- [x] Kayıtta koşul onayının kaydı; koşullar değişince yeniden onay
 - [ ] Her adrese e-posta gönderimi (doğrulanmış alan adı gerekir)
 
 ---
