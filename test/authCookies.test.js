@@ -50,7 +50,7 @@ describe("refresh token cookie", () => {
     await request(app)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send({ email, password });
+      .send({ email, password, acceptTerms: true });
     await db.delete(sessions);
   });
 
@@ -112,7 +112,7 @@ describe("refresh token cookie", () => {
   it("sets the cookie for web registrations too", async () => {
     const response = await request(app)
       .post("/auth/register")
-      .send({ email: "ayse@example.com", password });
+      .send({ email: "ayse@example.com", password, acceptTerms: true });
 
     expect(response.status).toBe(201);
     expect(response.body).not.toHaveProperty("refreshToken");

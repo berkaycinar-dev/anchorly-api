@@ -55,7 +55,7 @@ describe("POST /auth/register", () => {
     return request(app)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send(body);
+      .send({ acceptTerms: true, ...body });
   }
 
   it("creates an account and returns the public user fields", async () => {
@@ -72,6 +72,7 @@ describe("POST /auth/register", () => {
         email: "ali@example.com",
         displayName: "Ali",
         emailVerifiedAt: null,
+        termsAccepted: true,
         createdAt: expect.any(String),
       },
       accessToken: expect.any(String),
@@ -102,7 +103,7 @@ describe("POST /auth/register", () => {
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
       .set("User-Agent", "Mozilla/5.0 (X11; Linux x86_64) Firefox/131.0")
-      .send({ email: "ali@example.com", password });
+      .send({ email: "ali@example.com", password, acceptTerms: true });
 
     const rows = await db.select().from(sessions);
 

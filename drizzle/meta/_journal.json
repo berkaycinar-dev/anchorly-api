@@ -64,6 +64,13 @@
       "when": 1795096565104,
       "tag": "0008_task_sync_fields",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1795340969945,
+      "tag": "0009_terms_acceptance",
+      "breakpoints": true
     }
   ]
 }

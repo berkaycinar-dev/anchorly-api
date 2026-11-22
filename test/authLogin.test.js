@@ -26,7 +26,7 @@ describe("POST /auth/login", () => {
 
     const registration = await request(app)
       .post("/auth/register")
-      .send({ email, password, displayName: "Ali" });
+      .send({ email, password, displayName: "Ali", acceptTerms: true });
     userId = registration.body.user.id;
     await db.delete(sessions);
   });
@@ -55,6 +55,7 @@ describe("POST /auth/login", () => {
         email,
         displayName: "Ali",
         emailVerifiedAt: null,
+        termsAccepted: true,
         createdAt: expect.any(String),
       },
       accessToken: expect.any(String),

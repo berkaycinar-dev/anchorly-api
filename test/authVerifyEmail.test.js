@@ -32,7 +32,13 @@ describe("email verification", () => {
     return request(targetApp)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send({ email, password, displayName: "Ali", ...body });
+      .send({
+        email,
+        password,
+        displayName: "Ali",
+        ...body,
+        acceptTerms: true,
+      });
   }
 
   function verify(token) {

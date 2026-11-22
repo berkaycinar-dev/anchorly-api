@@ -10,6 +10,8 @@ export const users = pgTable(
     passwordHash: text(),
     emailVerifiedAt: timestamp({ withTimezone: true }),
     displayName: text(),
+    termsVersion: text(),
+    termsAcceptedAt: timestamp({ withTimezone: true }),
     createdAt: createdAt(),
     updatedAt: updatedAt(),
     deletedAt: deletedAt(),

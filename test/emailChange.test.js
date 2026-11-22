@@ -28,7 +28,12 @@ describe("email change", () => {
     const response = await request(targetApp)
       .post("/auth/register")
       .set("X-Anchorly-Client", "mobile")
-      .send({ email: address, password, displayName: "Ali" });
+      .send({
+        email: address,
+        password,
+        displayName: "Ali",
+        acceptTerms: true,
+      });
 
     targetApp.locals.mailer.sent.length = 0;
     return response.body;

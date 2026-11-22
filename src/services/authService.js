@@ -1,4 +1,5 @@
 import { and, eq, isNull, or } from "drizzle-orm";
+import { TERMS_VERSION } from "../constants/legal.js";
 import { DEFAULT_SETTINGS } from "../constants/settings.js";
 import {
   RESET_PASSWORD_TTL_HOURS,
@@ -55,6 +56,7 @@ export function toPublicUser(row) {
     email: row.email,
     displayName: row.displayName,
     emailVerifiedAt: row.emailVerifiedAt,
+    termsAccepted: row.termsVersion === TERMS_VERSION,
     createdAt: row.createdAt,
   };
 }
@@ -91,14 +93,20 @@ export async function createSession(
 export async function registerUser(
   db,
   { email, password, displayName, deviceName, language },
-  { auth },
+  { auth, now = new Date() },
 ) {
   const passwordHash = await hashPassword(password);
 
   return db.transaction(async (tx) => {
     const [user] = await tx
       .insert(users)
-      .values({ email, passwordHash, displayName: displayName ?? null })
+      .values({
+        email,
+        passwordHash,
+        displayName: displayName ?? null,
+        termsVersion: TERMS_VERSION,
+        termsAcceptedAt: now,
+      })
       .onConflictDoNothing({ target: users.email })
       .returning();
 

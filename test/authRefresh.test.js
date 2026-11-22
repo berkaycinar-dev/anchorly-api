@@ -22,7 +22,9 @@ describe("auth sessions", () => {
     app = createTestApp({ database: testDatabase.database });
     db = testDatabase.db;
 
-    await request(app).post("/auth/register").send({ email, password });
+    await request(app)
+      .post("/auth/register")
+      .send({ email, password, acceptTerms: true });
     await db.delete(sessions);
 
     signIn = async () =>

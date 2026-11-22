@@ -220,12 +220,16 @@ describe("documented response shapes", () => {
     const imported = await api.post("/import").send({
       projects: [{ id: "bbbbbbbb-0000-4000-8000-0000000000a1", name: "Imp" }],
     });
-    const registration = await request(app)
-      .post("/auth/register")
-      .send({ email: "shape@example.com", password: "long enough" });
-    const emailTaken = await request(app)
-      .post("/auth/register")
-      .send({ email: "shape@example.com", password: "long enough" });
+    const registration = await request(app).post("/auth/register").send({
+      email: "shape@example.com",
+      password: "long enough",
+      acceptTerms: true,
+    });
+    const emailTaken = await request(app).post("/auth/register").send({
+      email: "shape@example.com",
+      password: "long enough",
+      acceptTerms: true,
+    });
     const login = await request(app)
       .post("/auth/login")
       .send({ email: "shape@example.com", password: "long enough" });

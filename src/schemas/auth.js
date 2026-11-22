@@ -23,6 +23,11 @@ export const registerSchema = z.strictObject({
     .enum(LANGUAGES)
     .optional()
     .describe("Interface language; also used for account emails"),
+  acceptTerms: z
+    .literal(true)
+    .describe(
+      "Must be true: the user accepts the terms of use and has read the privacy notice",
+    ),
 });
 
 export const verifyEmailSchema = z.strictObject({
