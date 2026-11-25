@@ -51,7 +51,7 @@ export async function verifyAccessToken(token, { secret, now = new Date() }) {
   }
 }
 
-export function generateRefreshToken() {
+export function generateOpaqueToken() {
   return randomBytes(32).toString("base64url");
 }
 

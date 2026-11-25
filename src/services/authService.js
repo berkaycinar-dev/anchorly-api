@@ -17,7 +17,7 @@ import {
 import { hashPassword, verifyPassword } from "../lib/password.js";
 import {
   createAccessToken,
-  generateRefreshToken,
+  generateOpaqueToken,
   hashToken,
 } from "../lib/tokens.js";
 import { consumeEmailToken, issueEmailToken } from "./emailTokenService.js";
@@ -64,7 +64,7 @@ export async function createSession(
   db,
   { userId, deviceName, auth, now = new Date() },
 ) {
-  const refreshToken = generateRefreshToken();
+  const refreshToken = generateOpaqueToken();
   const refreshTokenExpiresAt = refreshExpiry(now, auth);
 
   const [session] = await db
@@ -213,7 +213,7 @@ export async function refreshSession(
       return { decision };
     }
 
-    const nextRefreshToken = generateRefreshToken();
+    const nextRefreshToken = generateOpaqueToken();
     const refreshTokenExpiresAt = refreshExpiry(now, auth);
 
     await tx

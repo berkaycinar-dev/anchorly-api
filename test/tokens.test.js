@@ -2,7 +2,7 @@ import { SignJWT } from "jose";
 import { describe, expect, it } from "vitest";
 import {
   createAccessToken,
-  generateRefreshToken,
+  generateOpaqueToken,
   hashToken,
   verifyAccessToken,
 } from "../src/lib/tokens.js";
@@ -187,9 +187,9 @@ describe("access tokens", () => {
   });
 });
 
-describe("refresh tokens", () => {
+describe("opaque tokens", () => {
   it("generates a 256-bit url-safe random token", () => {
-    const token = generateRefreshToken();
+    const token = generateOpaqueToken();
 
     expect(token).toMatch(/^[A-Za-z0-9_-]{43}$/);
     expect(Buffer.from(token, "base64url")).toHaveLength(32);
@@ -197,7 +197,7 @@ describe("refresh tokens", () => {
 
   it("generates a different token every time", () => {
     const tokens = new Set(
-      Array.from({ length: 100 }, () => generateRefreshToken()),
+      Array.from({ length: 100 }, () => generateOpaqueToken()),
     );
 
     expect(tokens.size).toBe(100);

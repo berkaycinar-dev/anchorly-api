@@ -1,7 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
 import { HOUR_IN_MS } from "../constants/time.js";
 import { emailTokens } from "../db/schema/index.js";
-import { generateRefreshToken, hashToken } from "../lib/tokens.js";
+import { generateOpaqueToken, hashToken } from "../lib/tokens.js";
 
 export async function issueEmailToken(
   db,
@@ -17,7 +17,7 @@ export async function issueEmailToken(
       ),
     );
 
-  const token = generateRefreshToken();
+  const token = generateOpaqueToken();
 
   await db.insert(emailTokens).values({
     userId,
