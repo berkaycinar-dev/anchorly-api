@@ -12,10 +12,10 @@ export function deletionTime(clientTime) {
   return clientTime ?? new Date();
 }
 
+export function latestUpdatedAt(table, clientTime) {
+  return sql`greatest(${table.updatedAt}, ${clientTime.toISOString()}::timestamptz)`;
+}
+
 export function latestUpdate(table, clientTime) {
-  return clientTime
-    ? {
-        updatedAt: sql`greatest(${table.updatedAt}, ${clientTime.toISOString()}::timestamptz)`,
-      }
-    : {};
+  return clientTime ? { updatedAt: latestUpdatedAt(table, clientTime) } : {};
 }

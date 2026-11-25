@@ -9,7 +9,12 @@ import {
 } from "../lib/httpError.js";
 import { toTask, toTaskColumns } from "../mappers/tasks.js";
 import { COMPLETED_AT_MESSAGE } from "../schemas/tasks.js";
-import { deletionTime, notNewerThan, stamp } from "./lastWriteWins.js";
+import {
+  deletionTime,
+  latestUpdatedAt,
+  notNewerThan,
+  stamp,
+} from "./lastWriteWins.js";
 
 function activeTask(userId, id) {
   return and(
@@ -168,7 +173,7 @@ export async function deleteTask(db, userId, id, clientTime = null) {
 
 export async function reorderTasks(db, userId, orderedIds, clientTime = null) {
   const updatedAt = clientTime
-    ? sql`greatest(${tasks.updatedAt}, ${clientTime.toISOString()}::timestamptz)`
+    ? latestUpdatedAt(tasks, clientTime)
     : sql`now()`;
   const idArray = sql`array[${sql.join(
     orderedIds.map((id) => sql`${id}`),

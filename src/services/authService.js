@@ -262,26 +262,32 @@ export async function revokeSession(
     );
 }
 
+async function redeemTokenForCurrentEmail(tx, { token, purpose, now }) {
+  const issued = await consumeEmailToken(tx, { token, purpose, now });
+
+  if (!issued) {
+    throw invalidEmailTokenError();
+  }
+
+  const [user] = await tx
+    .select()
+    .from(users)
+    .where(eq(users.id, issued.userId));
+
+  if (!user || user.email !== issued.email) {
+    throw invalidEmailTokenError();
+  }
+
+  return user;
+}
+
 export async function verifyEmail(db, { token, now = new Date() }) {
   return db.transaction(async (tx) => {
-    const issued = await consumeEmailToken(tx, {
+    const user = await redeemTokenForCurrentEmail(tx, {
       token,
       purpose: "verify_email",
       now,
     });
-
-    if (!issued) {
-      throw invalidEmailTokenError();
-    }
-
-    const [user] = await tx
-      .select()
-      .from(users)
-      .where(eq(users.id, issued.userId));
-
-    if (!user || user.email !== issued.email) {
-      throw invalidEmailTokenError();
-    }
 
     const [updated] = await tx
       .update(users)
@@ -351,24 +357,11 @@ export async function resetPassword(db, { token, password, now = new Date() }) {
   const passwordHash = await hashPassword(password);
 
   await db.transaction(async (tx) => {
-    const issued = await consumeEmailToken(tx, {
+    const user = await redeemTokenForCurrentEmail(tx, {
       token,
       purpose: "reset_password",
       now,
     });
-
-    if (!issued) {
-      throw invalidEmailTokenError();
-    }
-
-    const [user] = await tx
-      .select()
-      .from(users)
-      .where(eq(users.id, issued.userId));
-
-    if (!user || user.email !== issued.email) {
-      throw invalidEmailTokenError();
-    }
 
     await tx
       .update(users)
