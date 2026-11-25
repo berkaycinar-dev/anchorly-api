@@ -1,8 +1,7 @@
 import { and, eq, isNull } from "drizzle-orm";
+import { HOUR_IN_MS } from "../constants/time.js";
 import { emailTokens } from "../db/schema/index.js";
 import { generateRefreshToken, hashToken } from "../lib/tokens.js";
-
-const HOUR_IN_MS = 60 * 60 * 1000;
 
 export async function issueEmailToken(
   db,

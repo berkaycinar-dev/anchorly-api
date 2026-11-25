@@ -3,6 +3,7 @@ import {
   CLOSED_SESSION_RETENTION_DAYS,
   DELETED_ROW_RETENTION_DAYS,
 } from "../constants/cleanup.js";
+import { DAY_IN_MS } from "../constants/time.js";
 import {
   emailTokens,
   projects,
@@ -11,8 +12,6 @@ import {
   sessions,
   tasks,
 } from "../db/schema/index.js";
-
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
 
 function daysBefore(now, days) {
   return new Date(now.getTime() - days * DAY_IN_MS);

@@ -1,5 +1,4 @@
-const MINUTE = 60 * 1000;
-const HOUR = 60 * MINUTE;
+import { HOUR_IN_MS as HOUR, MINUTE_IN_MS as MINUTE } from "./time.js";
 
 export const RATE_LIMITS = Object.freeze({
   api: { windowMs: 15 * MINUTE, limit: 600 },

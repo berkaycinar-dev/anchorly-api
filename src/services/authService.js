@@ -5,6 +5,7 @@ import {
   RESET_PASSWORD_TTL_HOURS,
   VERIFY_EMAIL_TTL_HOURS,
 } from "../constants/emailTokens.js";
+import { DAY_IN_MS, MINUTE_IN_MS } from "../constants/time.js";
 import { sessions, userSettings, users } from "../db/schema/index.js";
 import {
   emailAlreadyVerifiedError,
@@ -21,9 +22,7 @@ import {
 } from "../lib/tokens.js";
 import { consumeEmailToken, issueEmailToken } from "./emailTokenService.js";
 
-const DAY_IN_MS = 24 * 60 * 60 * 1000;
-
-export const REFRESH_REUSE_GRACE_MS = 5 * 60 * 1000;
+export const REFRESH_REUSE_GRACE_MS = 5 * MINUTE_IN_MS;
 
 function refreshExpiry(now, auth) {
   return new Date(now.getTime() + auth.refreshTokenTtlDays * DAY_IN_MS);
