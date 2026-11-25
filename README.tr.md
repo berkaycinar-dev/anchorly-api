@@ -42,6 +42,7 @@ Görev ve alışkanlık takip uygulaması [Anchorly](https://github.com/berkayci
 - **Sıkı doğrulama:** her istek gövdesi Zod ile denetlenir. Bilinmeyen alanlar reddedilir; yazım hataları sessizce kaybolmaz.
 - **Tek hata biçimi:** her hata `{ "error": { "code", "message", "details" } }` biçiminde döner. İç hataların ayrıntısı dışarı sızmaz.
 - **Güvenlik başlıkları:** her yanıtta `helmet`. API yanıtları sıkı bir `default-src 'none'` politikası alır; `/docs` Swagger arayüzü yüklenebilsin diye varsayılan politikada kalır.
+- **Düzenli loglar:** her istek için tek bir JSON satırı (yöntem, sorgusuz yol, durum kodu, süre) ve yanıtta da dönen bir `X-Request-Id`. Başlıklar, gövdeler, çerezler ve IP adresleri hiç yazılmaz; parola ve token'lar gizlenir. `/ping` ve `/health` loglanmaz.
 - **Etkileşimli belge:** `/docs` adresinde OpenAPI 3. İstekleri doğrulayan Zod şemalarının aynısından üretilir.
 
 ---
@@ -169,6 +170,7 @@ http://localhost:3000/docs adresini aç, `POST /auth/login` ile `dev@anchorly.lo
 | `PORT`                     | `3000`                               | Sunucunun portu                                                                                                                                                      |
 | `DATABASE_URL`             | zorunlu                              | PostgreSQL bağlantı adresi                                                                                                                                           |
 | `TRUST_PROXY`              | boş (kapalı)                         | API'nin önündeki proxy sayısı (tek bir yük dengeleyicinin arkasında `1`). İstek sınırlarında doğru istemci adresi için gerekli. `true` ve adres listeleri reddedilir |
+| `LOG_LEVEL`                | `info`                               | `fatal`, `error`, `warn`, `info`, `debug`, `trace` ya da `silent`                                                                                                    |
 | `JWT_SECRET`               | zorunlu                              | En az 32 karakter; erişim token'larını imzalar                                                                                                                       |
 | `ACCESS_TOKEN_TTL_SECONDS` | `900`                                | Erişim token'ının süresi (60–3600)                                                                                                                                   |
 | `REFRESH_TOKEN_TTL_DAYS`   | `30`                                 | Refresh token'ın süresi, her yenilemede uzar (1–90)                                                                                                                  |
@@ -187,7 +189,7 @@ Bir değer eksik ya da geçersizse sunucu açılmaz ve hangisi olduğunu söyler
 
 | Komut                 | Ne yapar                                                                                      |
 | --------------------- | --------------------------------------------------------------------------------------------- |
-| `npm run dev`         | Sunucuyu başlatır, dosya değişince yeniden başlatır                                           |
+| `npm run dev`         | Sunucuyu başlatır, dosya değişince yeniden başlatır, logları okunur gösterir                  |
 | `npm start`           | Sunucuyu başlatır                                                                             |
 | `npm run db:generate` | `src/db/schema` içindeki değişikliklerden migration üretir                                    |
 | `npm run db:migrate`  | Bekleyen migration'ları `.env`'deki veritabanına uygular                                      |

@@ -38,7 +38,7 @@ export function createErrorHandler({ logger = console } = {}) {
     const httpError = toHttpError(error);
 
     if (!httpError) {
-      logger.error(error);
+      (request.log ?? logger).error(error);
       response.status(500).json({
         error: { code: "INTERNAL_ERROR", message: "Something went wrong" },
       });

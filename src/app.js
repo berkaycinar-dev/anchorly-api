@@ -11,6 +11,7 @@ import {
 import { readClientTime } from "./middleware/clientTime.js";
 import { createRateLimiters } from "./middleware/rateLimits.js";
 import { createBreachedPasswordGuard } from "./middleware/breachedPassword.js";
+import { createRequestLogger } from "./middleware/requestLogger.js";
 import { createRequireAuth } from "./middleware/requireAuth.js";
 import { createSecurityHeaders } from "./middleware/securityHeaders.js";
 import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
@@ -18,6 +19,7 @@ import { PUBLIC_ROUTERS, RESOURCE_ROUTERS } from "./routes/index.js";
 export function createApp({
   database,
   logger = console,
+  logRequests = false,
   auth,
   mailer,
   appUrl,
@@ -51,6 +53,11 @@ export function createApp({
   app.disable("x-powered-by");
   app.set("trust proxy", trustProxy > 0 ? trustProxy : false);
   app.use(createSecurityHeaders());
+
+  if (logRequests) {
+    app.use(createRequestLogger({ logger }));
+  }
+
   const defaultJsonParser = express.json({ limit: "100kb" });
 
   app.use((request, response, next) => {

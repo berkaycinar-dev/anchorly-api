@@ -11,7 +11,20 @@ describe("loadConfig", () => {
       port: 3000,
       databaseUrl: validEnvironment.DATABASE_URL,
       trustProxy: 0,
+      logLevel: "info",
     });
+  });
+
+  it("reads the log level and rejects unknown ones", () => {
+    expect(
+      loadConfig({ ...validEnvironment, LOG_LEVEL: "debug" }).logLevel,
+    ).toBe("debug");
+    expect(
+      loadConfig({ ...validEnvironment, LOG_LEVEL: "silent" }).logLevel,
+    ).toBe("silent");
+    expect(() =>
+      loadConfig({ ...validEnvironment, LOG_LEVEL: "verbose" }),
+    ).toThrow(/LOG_LEVEL/);
   });
 
   it("reads the number of trusted proxies", () => {

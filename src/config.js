@@ -1,5 +1,6 @@
 import { existsSync } from "node:fs";
 import { z } from "zod";
+import { LOG_LEVELS } from "./lib/logger.js";
 
 const environmentSchema = z.object({
   PORT: z.coerce.number().int().min(1).max(65535).default(3000),
@@ -13,6 +14,7 @@ const environmentSchema = z.object({
     )
     .default("")
     .transform((value) => Number(value)),
+  LOG_LEVEL: z.enum(LOG_LEVELS).default("info"),
 });
 
 export function loadConfig(environment = process.env) {
@@ -28,6 +30,7 @@ export function loadConfig(environment = process.env) {
     port: result.data.PORT,
     databaseUrl: result.data.DATABASE_URL,
     trustProxy: result.data.TRUST_PROXY,
+    logLevel: result.data.LOG_LEVEL,
   };
 }
 

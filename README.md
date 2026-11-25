@@ -42,6 +42,7 @@ The REST API behind [Anchorly](https://github.com/berkaycinar-dev/Anchorly), a t
 - **Strict validation:** every request body is checked with Zod. Unknown fields are rejected, so a typo never disappears silently.
 - **One error shape:** `{ "error": { "code", "message", "details" } }` for every failure. Internal errors never leak details.
 - **Security headers:** `helmet` on every response. API responses get a strict `default-src 'none'` policy; `/docs` keeps the default one so Swagger UI can load.
+- **Structured logs:** one JSON line per request (method, path without the query, status, time) with an `X-Request-Id` that is also sent back. Headers, bodies, cookies and IP addresses are never logged, and passwords and tokens are redacted. `/ping` and `/health` stay quiet.
 - **Interactive documentation:** OpenAPI 3 at `/docs`, generated from the same Zod schemas that validate requests.
 
 ---
@@ -169,6 +170,7 @@ To check a running server from end to end, run `npm run smoke` in a second termi
 | `PORT`                     | `3000`                               | Port of the server                                                                                                                                              |
 | `DATABASE_URL`             | required                             | PostgreSQL connection string                                                                                                                                    |
 | `TRUST_PROXY`              | empty (off)                          | Number of proxies in front of the API (`1` behind one load balancer). Needed for correct client addresses in rate limits. `true` and address lists are rejected |
+| `LOG_LEVEL`                | `info`                               | `fatal`, `error`, `warn`, `info`, `debug`, `trace` or `silent`                                                                                                  |
 | `JWT_SECRET`               | required                             | At least 32 characters; signs the access tokens                                                                                                                 |
 | `ACCESS_TOKEN_TTL_SECONDS` | `900`                                | Access token lifetime (60–3600)                                                                                                                                 |
 | `REFRESH_TOKEN_TTL_DAYS`   | `30`                                 | Refresh token lifetime, renewed on every refresh (1–90)                                                                                                         |
@@ -187,7 +189,7 @@ The server refuses to start when a value is missing or invalid, and says which o
 
 | Command               | What it does                                                                    |
 | --------------------- | ------------------------------------------------------------------------------- |
-| `npm run dev`         | Start the server and restart it when a file changes                             |
+| `npm run dev`         | Start the server, restart it when a file changes and print readable logs        |
 | `npm start`           | Start the server                                                                |
 | `npm run db:generate` | Create a migration from changes in `src/db/schema`                              |
 | `npm run db:migrate`  | Apply pending migrations to the database in `.env`                              |
