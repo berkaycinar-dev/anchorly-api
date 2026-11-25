@@ -10,6 +10,10 @@ export const emailSchema = z
 
 export const passwordSchema = z.string().min(8).max(128);
 
+export const currentPasswordSchema = z.string().min(1).max(128);
+
+const tokenSchema = z.string().min(1).max(512);
+
 export const displayNameSchema = z.string().trim().min(1).max(100);
 
 export const deviceNameSchema = z.string().trim().min(1).max(100);
@@ -31,7 +35,7 @@ export const registerSchema = z.strictObject({
 });
 
 export const verifyEmailSchema = z.strictObject({
-  token: z.string().min(1).max(512),
+  token: tokenSchema,
 });
 
 export const forgotPasswordSchema = z.strictObject({
@@ -39,25 +43,22 @@ export const forgotPasswordSchema = z.strictObject({
 });
 
 export const resetPasswordSchema = z.strictObject({
-  token: z.string().min(1).max(512),
+  token: tokenSchema,
   password: passwordSchema,
 });
 
 export const refreshSchema = z.strictObject({
-  refreshToken: z
-    .string()
-    .min(1)
-    .max(512)
+  refreshToken: tokenSchema
     .optional()
     .describe("Mobile clients only; web clients send the refresh cookie"),
 });
 
 export const loginSchema = z.strictObject({
   email: emailSchema,
-  password: z.string().min(1).max(128),
+  password: currentPasswordSchema,
   deviceName: deviceNameSchema.optional(),
 });
 
 export const confirmEmailChangeSchema = z.strictObject({
-  token: z.string().min(1).max(512),
+  token: tokenSchema,
 });

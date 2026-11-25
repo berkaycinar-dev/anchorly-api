@@ -1,5 +1,10 @@
 import { z } from "zod";
-import { displayNameSchema, emailSchema, passwordSchema } from "./auth.js";
+import {
+  currentPasswordSchema,
+  displayNameSchema,
+  emailSchema,
+  passwordSchema,
+} from "./auth.js";
 
 export const updateMeSchema = z.strictObject({
   displayName: displayNameSchema.nullable(),
@@ -8,17 +13,17 @@ export const updateMeSchema = z.strictObject({
 export const sessionIdParams = z.object({ id: z.uuid() });
 
 export const deleteAccountSchema = z.strictObject({
-  password: z.string().min(1).max(128),
+  password: currentPasswordSchema,
 });
 
 export const changePasswordSchema = z.strictObject({
-  currentPassword: z.string().min(1).max(128),
+  currentPassword: currentPasswordSchema,
   newPassword: passwordSchema,
 });
 
 export const changeEmailSchema = z.strictObject({
   newEmail: emailSchema,
-  password: z.string().min(1).max(128),
+  password: currentPasswordSchema,
 });
 
 export const acceptTermsSchema = z.strictObject({

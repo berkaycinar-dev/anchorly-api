@@ -1,12 +1,14 @@
 import { z } from "zod";
 import {
   BOARD_STATUSES,
+  DEFAULT_TASK_CATEGORY,
   DUE_TIME_PATTERN,
   REPEAT_RULES,
   TASK_CATEGORIES,
 } from "../constants/tasks.js";
 
-const COMPLETED_AT_MESSAGE = "An unfinished task cannot have a completion date";
+export const COMPLETED_AT_MESSAGE =
+  "An unfinished task cannot have a completion date";
 
 const taskStep = z.strictObject({
   id: z.uuid(),
@@ -45,7 +47,7 @@ export const createTaskSchema = z
     id: z.uuid(),
     title: taskFields.title,
     order: taskFields.order,
-    category: taskFields.category.default("Work"),
+    category: taskFields.category.default(DEFAULT_TASK_CATEGORY),
     date: taskFields.date.default(""),
     completed: taskFields.completed.default(false),
     completedAt: taskFields.completedAt.default(null),
@@ -101,5 +103,3 @@ export const bulkTasksSchema = z.strictObject({
     .min(1)
     .max(500),
 });
-
-export { COMPLETED_AT_MESSAGE };
