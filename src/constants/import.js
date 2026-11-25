@@ -7,5 +7,5 @@ export const IMPORT_LIMITS = Object.freeze({
   tasks: 5000,
 });
 
-export const TASK_INSERT_BATCH_SIZE = 500;
+export const ROW_INSERT_BATCH_SIZE = 500;
 export const CHECK_INSERT_BATCH_SIZE = 2000;

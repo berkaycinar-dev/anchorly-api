@@ -1,7 +1,7 @@
 import { and, eq, inArray, isNull, sql } from "drizzle-orm";
 import {
   CHECK_INSERT_BATCH_SIZE,
-  TASK_INSERT_BATCH_SIZE,
+  ROW_INSERT_BATCH_SIZE,
 } from "../constants/import.js";
 import {
   projects,
@@ -62,7 +62,7 @@ async function importProjects(tx, userId, items, startedAt) {
     createdAt: new Date(startedAt + index),
   }));
 
-  return insertInBatches(rows, TASK_INSERT_BATCH_SIZE, (batch) =>
+  return insertInBatches(rows, ROW_INSERT_BATCH_SIZE, (batch) =>
     tx
       .insert(projects)
       .values(batch)
@@ -87,7 +87,7 @@ async function importRoutines(tx, userId, items) {
     position: nextPosition + index,
   }));
 
-  return insertInBatches(rows, TASK_INSERT_BATCH_SIZE, (batch) =>
+  return insertInBatches(rows, ROW_INSERT_BATCH_SIZE, (batch) =>
     tx
       .insert(routines)
       .values(batch)
@@ -140,7 +140,7 @@ async function importTasks(tx, userId, items, startedAt) {
     createdAt: new Date(startedAt + index),
   }));
 
-  return insertInBatches(rows, TASK_INSERT_BATCH_SIZE, (batch) =>
+  return insertInBatches(rows, ROW_INSERT_BATCH_SIZE, (batch) =>
     tx
       .insert(tasks)
       .values(batch)
